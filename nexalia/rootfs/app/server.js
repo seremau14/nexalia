@@ -1,0 +1,458 @@
+// Nexalia – server dell'app per Home Assistant
+// Nessuna dipendenza esterna: Node 22 (http, fetch e WebSocket integrati).
+"use strict";
+
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const { spawn } = require("child_process");
+
+const VERSIONE = "1.0.0";
+const PORTA = Number(process.env.PORTA || 8099);
+const DATI = process.env.NEXALIA_DATI || "/data";
+const WWW = path.join(__dirname, "www");
+const TOKEN = process.env.SUPERVISOR_TOKEN || process.env.HA_TOKEN || "";
+const HA_HTTP = process.env.HA_HTTP || "http://supervisor/core";
+const HA_WS = process.env.HA_WS || "ws://supervisor/core/websocket";
+const LICENZE = process.env.NEXALIA_LICENZE || "https://licenze.nexaliahome.com";
+const CLOUDFLARED = process.env.CLOUDFLARED || "/usr/bin/cloudflared";
+const FILE_CONFIG = path.join(DATI, "nexalia.json");
+const GIORNI_OFFLINE = 7;
+
+const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
+
+// ---------------------------------------------------------------- configurazione salvata
+const CONFIG_BASE = {
+  id_casa: null,
+  stanze: [],            // [{id, nome, icona, entita:[entity_id]}]  vuoto = usa le aree di HA
+  nascoste: [],          // entità da non mostrare
+  posizioni: {},         // casa 3D: {entity_id: {x, y}}  (percentuali nella stanza)
+  pianta: {},            // casa 3D: {stanza_id: {x, y, w, h}} in celle
+  energia: { solare: "", rete: "", batteria: "", batteria_livello: "", casa: "", contatore_kw: 3, differibili: [] },
+  agente: { notifica: "", spegni_luci_uscita: false, avvisa_consumi: true, avvisa_finestre_pioggia: true },
+  raccolta: { attiva: false, ora: "20:00", calendario: {} },   // calendario: {"1":"Organico", ...} giorno settimana 1-7 -> tipo (sera prima)
+  sezioni: ["agente", "stanze", "comandi", "energia", "sicurezza", "persone", "scenari", "raccolta"],
+  tema: "scuro",
+  licenza: { codice: "", stato: "gratuita", scadenza: null, indirizzo: null, tunnel_token: null, ultimo_ok: null, messaggio: "" },
+};
+
+function carica() {
+  let c = {};
+  try { c = JSON.parse(fs.readFileSync(FILE_CONFIG, "utf8")); } catch (e) {}
+  const out = JSON.parse(JSON.stringify(CONFIG_BASE));
+  for (const k of Object.keys(c)) {
+    if (out[k] && typeof out[k] === "object" && !Array.isArray(out[k]) && c[k] && typeof c[k] === "object" && !Array.isArray(c[k])) Object.assign(out[k], c[k]);
+    else out[k] = c[k];
+  }
+  if (!out.id_casa) out.id_casa = crypto.randomBytes(16).toString("hex");
+  return out;
+}
+let config = carica();
+function salva() {
+  try {
+    fs.mkdirSync(DATI, { recursive: true });
+    fs.writeFileSync(FILE_CONFIG + ".tmp", JSON.stringify(config, null, 1));
+    fs.renameSync(FILE_CONFIG + ".tmp", FILE_CONFIG);
+  } catch (e) { log("Salvataggio fallito:", e.message); }
+}
+salva();
+
+const completa = () => config.licenza.stato === "attiva";
+
+// config inviata alla plancia: senza il token del tunnel
+function configPubblica() {
+  const c = JSON.parse(JSON.stringify(config));
+  delete c.licenza.tunnel_token;
+  delete c.id_casa;
+  c.licenza.completa = completa();
+  return c;
+}
+
+// ---------------------------------------------------------------- collegamento a Home Assistant
+const ha = { ws: null, pronto: false, id: 1, attese: new Map(), stati: {}, aree: [], dispositivi: [], entita: [], config: {}, servizi: {} };
+const clientiSSE = new Set();
+
+function inviaSSE(tipo, dati) {
+  const riga = `event: ${tipo}\ndata: ${JSON.stringify(dati)}\n\n`;
+  for (const r of clientiSSE) { try { r.write(riga); } catch (e) {} }
+}
+
+function wsChiama(msg, timeout = 20000) {
+  return new Promise((ok, ko) => {
+    if (!ha.ws || !ha.pronto) return ko(new Error("Home Assistant non collegato"));
+    const id = ha.id++;
+    const t = setTimeout(() => { ha.attese.delete(id); ko(new Error("Home Assistant non risponde")); }, timeout);
+    ha.attese.set(id, { ok: (r) => { clearTimeout(t); ok(r); }, ko: (e) => { clearTimeout(t); ko(e); } });
+    ha.ws.send(JSON.stringify({ ...msg, id }));
+  });
+}
+
+async function haRest(metodo, percorso, corpo) {
+  const r = await fetch(HA_HTTP + percorso, {
+    method: metodo,
+    headers: { authorization: "Bearer " + TOKEN, "content-type": "application/json" },
+    body: corpo === undefined ? undefined : JSON.stringify(corpo),
+  });
+  if (!r.ok) throw new Error("Home Assistant: " + r.status + " " + (await r.text()).slice(0, 200));
+  const t = r.headers.get("content-type") || "";
+  return t.includes("json") ? r.json() : r.text();
+}
+
+async function caricaRegistri() {
+  const [stati, aree, disp, ent, cfg, serv] = await Promise.all([
+    wsChiama({ type: "get_states" }),
+    wsChiama({ type: "config/area_registry/list" }).catch(() => []),
+    wsChiama({ type: "config/device_registry/list" }).catch(() => []),
+    wsChiama({ type: "config/entity_registry/list" }).catch(() => []),
+    wsChiama({ type: "get_config" }).catch(() => ({})),
+    wsChiama({ type: "get_services" }).catch(() => ({})),
+  ]);
+  ha.stati = {};
+  for (const s of stati) ha.stati[s.entity_id] = s;
+  ha.aree = aree.map((a) => ({ id: a.area_id, nome: a.name, icona: a.icon || null }));
+  ha.dispositivi = disp.map((d) => ({ id: d.id, area: d.area_id, nome: d.name_by_user || d.name, produttore: d.manufacturer, modello: d.model }));
+  ha.entita = ent.map((e) => ({ id: e.entity_id, area: e.area_id, dispositivo: e.device_id, nascosta: !!(e.hidden_by || e.disabled_by), categoria: e.entity_category || null }));
+  ha.config = { nome: cfg.location_name, unita: cfg.unit_system, lingua: cfg.language, fuso: cfg.time_zone, versione: cfg.version };
+  ha.servizi = Object.fromEntries(Object.entries(serv).map(([d, s]) => [d, Object.keys(s)]));
+  inviaSSE("ricarica", {});
+}
+
+function collegaHA() {
+  if (!TOKEN) { log("Manca il token di Home Assistant: la plancia non può leggere i dispositivi."); return; }
+  let ws;
+  try { ws = new WebSocket(HA_WS); } catch (e) { log("WebSocket:", e.message); return setTimeout(collegaHA, 5000); }
+  ha.ws = ws; ha.pronto = false;
+  ws.onmessage = async (ev) => {
+    let m; try { m = JSON.parse(typeof ev.data === "string" ? ev.data : ev.data.toString()); } catch (e) { return; }
+    const lista = Array.isArray(m) ? m : [m];
+    for (const msg of lista) {
+      if (msg.type === "auth_required") ws.send(JSON.stringify({ type: "auth", access_token: TOKEN }));
+      else if (msg.type === "auth_ok") {
+        ha.pronto = true; log("Collegato a Home Assistant", msg.ha_version || "");
+        try {
+          await wsChiama({ type: "subscribe_events", event_type: "state_changed" });
+          for (const e of ["area_registry_updated", "entity_registry_updated", "device_registry_updated"]) await wsChiama({ type: "subscribe_events", event_type: e });
+          await caricaRegistri();
+        } catch (e) { log("Iscrizione eventi fallita:", e.message); }
+      } else if (msg.type === "auth_invalid") { log("Token di Home Assistant rifiutato"); }
+      else if (msg.type === "result") {
+        const a = ha.attese.get(msg.id); if (!a) continue; ha.attese.delete(msg.id);
+        msg.success ? a.ok(msg.result) : a.ko(new Error((msg.error && msg.error.message) || "Errore Home Assistant"));
+      } else if (msg.type === "event" && msg.event) {
+        const e = msg.event;
+        if (e.event_type === "state_changed") {
+          const { entity_id, new_state, old_state } = e.data;
+          if (new_state) ha.stati[entity_id] = new_state; else delete ha.stati[entity_id];
+          inviaSSE("stato", { id: entity_id, s: new_state });
+          try { agenteCambio(entity_id, old_state, new_state); } catch (er) { log("Agente:", er.message); }
+        } else { clearTimeout(ha.tRicarica); ha.tRicarica = setTimeout(() => caricaRegistri().catch(() => {}), 1500); }
+      }
+    }
+  };
+  ws.onclose = () => {
+    ha.pronto = false;
+    for (const a of ha.attese.values()) a.ko(new Error("Collegamento chiuso"));
+    ha.attese.clear();
+    log("Home Assistant scollegato, riprovo tra 5 secondi");
+    setTimeout(collegaHA, 5000);
+  };
+  ws.onerror = () => {};
+}
+
+// ---------------------------------------------------------------- agente
+const diario = []; // [{t, tipo:"info"|"fatto"|"avviso", icona, titolo, testo, stanza}]
+function annota(voce) {
+  const v = { t: Date.now(), tipo: "info", ...voce };
+  diario.unshift(v); if (diario.length > 150) diario.pop();
+  inviaSSE("diario", v);
+  return v;
+}
+const nome = (id) => (ha.stati[id] && ha.stati[id].attributes.friendly_name) || id;
+const dominio = (id) => id.split(".")[0];
+const classe = (id) => (ha.stati[id] && ha.stati[id].attributes.device_class) || "";
+function areaDi(id) {
+  for (const st of config.stanze) if ((st.entita || []).includes(id)) return st.nome;
+  const e = ha.entita.find((x) => x.id === id); if (!e) return "";
+  let a = e.area; if (!a && e.dispositivo) { const d = ha.dispositivi.find((x) => x.id === e.dispositivo); a = d && d.area; }
+  const ar = ha.aree.find((x) => x.id === a); return ar ? ar.nome : "";
+}
+async function servizio(dom, srv, dati) {
+  return wsChiama({ type: "call_service", domain: dom, service: srv, service_data: dati || {} });
+}
+async function notifica(titolo, testo) {
+  const n = config.agente.notifica;
+  try {
+    if (n && n.startsWith("notify.")) await servizio("notify", n.slice(7), { title: titolo, message: testo });
+    else await servizio("persistent_notification", "create", { title: titolo, message: testo, notification_id: "nexalia_" + Date.now() });
+  } catch (e) { log("Notifica non inviata:", e.message); }
+}
+function numero(id) { const s = ha.stati[id]; if (!s) return null; const v = parseFloat(s.state); if (isNaN(v)) return null; const u = (s.attributes.unit_of_measurement || "").toLowerCase(); return u === "kw" ? v * 1000 : v; }
+
+const APERTURE = ["door", "window", "garage_door", "opening"];
+const PERICOLI = { smoke: "fumo", gas: "gas", moisture: "acqua", carbon_monoxide: "monossido", problem: "un problema" };
+let ultimoAvvisoConsumi = 0;
+
+function agenteCambio(id, vecchio, nuovo) {
+  if (!nuovo || !vecchio || vecchio.state === nuovo.state) return;
+  const d = dominio(id), c = classe(id), stanza = areaDi(id), s = nuovo.state;
+  if (d === "person") {
+    if (s === "home") annota({ icona: "persone", titolo: nome(id) + " è rientrato a casa", stanza: "Casa" });
+    else if (vecchio.state === "home") {
+      annota({ icona: "persone", titolo: nome(id) + " è uscito", testo: s !== "not_home" ? "Ora è in " + s : "", stanza: "Casa" });
+      const tutti = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("person."));
+      if (tutti.length && tutti.every((p) => p.state !== "home")) uscitiTutti();
+    }
+  } else if (d === "binary_sensor" && PERICOLI[c] && s === "on") {
+    const v = annota({ tipo: "avviso", icona: "allerta", titolo: "Rilevato " + PERICOLI[c] + (stanza ? " in " + stanza.toLowerCase() : ""), testo: nome(id), stanza });
+    notifica("Nexalia – attenzione", v.titolo);
+  } else if (d === "binary_sensor" && APERTURE.includes(c) && s === "on") {
+    const allarme = Object.values(ha.stati).find((x) => x.entity_id.startsWith("alarm_control_panel.") && x.state.startsWith("armed"));
+    if (allarme) {
+      const v = annota({ tipo: "avviso", icona: "sicurezza", titolo: nome(id) + " aperta con l'allarme inserito", stanza });
+      notifica("Nexalia – allarme", v.titolo);
+    } else if (config.agente.avvisa_finestre_pioggia && c === "window" && piove()) {
+      annota({ tipo: "avviso", icona: "goccia", titolo: "Sta piovendo e " + nome(id).toLowerCase() + " è aperta", stanza });
+    }
+  } else if (d === "alarm_control_panel") {
+    const t = { armed_away: "Allarme inserito (totale)", armed_home: "Allarme inserito (in casa)", armed_night: "Allarme inserito (notte)", disarmed: "Allarme disinserito", triggered: "ALLARME SCATTATO" }[s];
+    if (t) { const v = annota({ tipo: s === "triggered" ? "avviso" : "info", icona: "sicurezza", titolo: t }); if (s === "triggered") notifica("Nexalia – allarme", v.titolo + ": " + nome(id)); }
+  } else if (d === "weather" && config.agente.avvisa_finestre_pioggia && ["rainy", "pouring", "lightning-rainy"].includes(s)) {
+    const aperte = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("binary_sensor.") && x.attributes.device_class === "window" && x.state === "on");
+    if (aperte.length) { const v = annota({ tipo: "avviso", icona: "goccia", titolo: "Inizia a piovere: " + aperte.length + (aperte.length === 1 ? " finestra aperta" : " finestre aperte"), testo: aperte.map((x) => x.attributes.friendly_name).join(", ") }); notifica("Nexalia", v.titolo); }
+  }
+  if (config.energia.casa && id === config.energia.casa) controllaConsumi();
+}
+
+function piove() { return Object.values(ha.stati).some((x) => x.entity_id.startsWith("weather.") && ["rainy", "pouring", "lightning-rainy"].includes(x.state)); }
+
+async function uscitiTutti() {
+  const accese = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("light.") && x.state === "on");
+  if (config.agente.spegni_luci_uscita && accese.length) {
+    try {
+      await servizio("light", "turn_off", { entity_id: accese.map((x) => x.entity_id) });
+      annota({ tipo: "fatto", icona: "luci", titolo: "Siete usciti tutti: ho spento " + accese.length + (accese.length === 1 ? " luce" : " luci"), stanza: "Casa" });
+    } catch (e) {}
+  } else if (accese.length) {
+    annota({ tipo: "avviso", icona: "luci", titolo: "Siete usciti tutti ma " + accese.length + (accese.length === 1 ? " luce è accesa" : " luci sono accese"), testo: "Puoi spegnerle da Comandi, oppure attiva lo spegnimento automatico nelle impostazioni dell'agente." });
+  }
+}
+
+async function controllaConsumi() {
+  if (!config.agente.avvisa_consumi) return;
+  const w = numero(config.energia.casa), lim = (Number(config.energia.contatore_kw) || 3) * 1000;
+  if (w == null || w < lim * 0.92 || Date.now() - ultimoAvvisoConsumi < 10 * 60000) return;
+  ultimoAvvisoConsumi = Date.now();
+  const diff = (config.energia.differibili || []).filter((id) => ha.stati[id] && ha.stati[id].state === "on");
+  if (diff.length) {
+    const id = diff[0];
+    try {
+      await servizio(dominio(id), "turn_off", { entity_id: id });
+      const v = annota({ tipo: "fatto", icona: "energia", titolo: "Consumi a " + (w / 1000).toFixed(1).replace(".", ",") + " kW: ho spento " + nome(id).toLowerCase(), testo: "Per non superare i " + config.energia.contatore_kw + " kW del contatore. Riaccendila quando gli altri consumi scendono." });
+      notifica("Nexalia", v.titolo);
+    } catch (e) {}
+  } else {
+    const v = annota({ tipo: "avviso", icona: "energia", titolo: "Consumi alti: " + (w / 1000).toFixed(1).replace(".", ",") + " kW", testo: "Stai per superare i " + config.energia.contatore_kw + " kW del contatore." });
+    notifica("Nexalia", v.titolo);
+  }
+}
+
+// promemoria raccolta + batterie, ogni minuto
+let ultimoPromemoria = "", ultimoControlloBatterie = "";
+setInterval(() => {
+  const ora = new Date(), hhmm = ora.toTimeString().slice(0, 5), oggi = ora.toISOString().slice(0, 10);
+  const r = config.raccolta;
+  if (r.attiva && hhmm === r.ora && ultimoPromemoria !== oggi) {
+    ultimoPromemoria = oggi;
+    const domani = ((ora.getDay() + 1) % 7) || 7; // 1 = lunedì ... 7 = domenica
+    const tipo = r.calendario[String(domani)];
+    if (tipo) { const v = annota({ tipo: "avviso", icona: "raccolta", titolo: "Stasera porta fuori: " + tipo, testo: "Domani mattina passa la raccolta.", stanza: "Raccolta" }); notifica("Nexalia – raccolta", v.titolo); }
+  }
+  if (hhmm === "09:00" && ultimoControlloBatterie !== oggi) {
+    ultimoControlloBatterie = oggi;
+    const scariche = Object.values(ha.stati).filter((x) => x.attributes.device_class === "battery" && x.entity_id.startsWith("sensor.") && parseFloat(x.state) <= 15);
+    if (scariche.length) annota({ tipo: "avviso", icona: "batteria", titolo: scariche.length === 1 ? "Una batteria è quasi scarica" : scariche.length + " batterie quasi scariche", testo: scariche.map((x) => x.attributes.friendly_name + " " + x.state + "%").join(" · ") });
+  }
+}, 30000);
+
+// ---------------------------------------------------------------- licenza e accesso da fuori casa
+let tunnel = null, tunnelStato = "spento";
+function avviaTunnel() {
+  fermaTunnel();
+  const tk = config.licenza.tunnel_token;
+  if (!tk || !completa()) return;
+  if (!fs.existsSync(CLOUDFLARED)) { tunnelStato = "mancante"; log("cloudflared non trovato"); return; }
+  tunnelStato = "avvio";
+  tunnel = spawn(CLOUDFLARED, ["tunnel", "--no-autoupdate", "run", "--token", tk], { stdio: ["ignore", "pipe", "pipe"] });
+  const leggi = (b) => { const t = b.toString(); if (/Registered tunnel connection|Connection .* registered/i.test(t)) tunnelStato = "attivo"; };
+  tunnel.stdout.on("data", leggi); tunnel.stderr.on("data", leggi);
+  tunnel.on("exit", (c) => { const era = tunnel; tunnel = null; tunnelStato = "spento"; if (era && !era.voluto && completa()) { log("Tunnel chiuso (" + c + "), riavvio tra 15 s"); setTimeout(avviaTunnel, 15000); } });
+}
+function fermaTunnel() { if (tunnel) { tunnel.voluto = true; tunnel.kill(); tunnel = null; } tunnelStato = "spento"; }
+
+async function chiamaLicenze(percorso, corpo) {
+  const r = await fetch(LICENZE + percorso, { method: "POST", headers: { "content-type": "application/json", "user-agent": "Nexalia/" + VERSIONE }, body: JSON.stringify(corpo) });
+  const d = await r.json().catch(() => ({ ok: false, errore: "Risposta non valida dal server licenze" }));
+  return { http: r.status, ...d };
+}
+
+async function attivaLicenza(codice) {
+  codice = String(codice || "").trim().toUpperCase();
+  if (!/^NXL-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(codice)) return { ok: false, errore: "Il codice ha la forma NXL-XXXX-XXXX" };
+  const d = await chiamaLicenze("/api/attiva", { codice, id_casa: config.id_casa });
+  if (!d.ok) return { ok: false, errore: d.errore || "Attivazione non riuscita" };
+  Object.assign(config.licenza, { codice, stato: "attiva", scadenza: d.scadenza, indirizzo: d.indirizzo, tunnel_token: d.tunnel_token, ultimo_ok: Date.now(), messaggio: "" });
+  salva(); avviaTunnel();
+  annota({ tipo: "fatto", icona: "sicurezza", titolo: "Licenza completa attivata", testo: "Accesso da fuori casa: " + d.indirizzo });
+  return { ok: true };
+}
+
+async function disattivaLicenza() {
+  const codice = config.licenza.codice;
+  let d = { ok: true };
+  if (codice) d = await chiamaLicenze("/api/disattiva", { codice, id_casa: config.id_casa }).catch((e) => ({ ok: false, errore: e.message }));
+  fermaTunnel();
+  config.licenza = { ...CONFIG_BASE.licenza };
+  salva();
+  return { ok: true, avviso: d.ok ? "" : d.errore };
+}
+
+async function verificaLicenza() {
+  const l = config.licenza;
+  if (!l.codice) return;
+  try {
+    const d = await chiamaLicenze("/api/verifica", { codice: l.codice, id_casa: config.id_casa });
+    if (d.ok) { Object.assign(l, { stato: "attiva", scadenza: d.scadenza, indirizzo: d.indirizzo || l.indirizzo, ultimo_ok: Date.now(), messaggio: "" }); if (!tunnel) avviaTunnel(); }
+    else if (d.stato === "scaduta") { fermaTunnel(); Object.assign(l, { stato: "scaduta", scadenza: d.scadenza, messaggio: "Licenza scaduta il " + d.scadenza + ". Rinnovala per riavere tutte le sezioni." }); }
+    else if (d.http === 404 || d.stato === "revocata" || d.stato === "non_valida") { fermaTunnel(); Object.assign(l, { stato: "gratuita", messaggio: "La licenza non è più valida su questa casa." }); }
+    salva();
+  } catch (e) {
+    // server non raggiungibile: si continua per qualche giorno
+    if (l.stato === "attiva" && l.ultimo_ok && Date.now() - l.ultimo_ok > GIORNI_OFFLINE * 86400000) {
+      fermaTunnel(); l.stato = "gratuita"; l.messaggio = "Nessun contatto con il server licenze da " + GIORNI_OFFLINE + " giorni."; salva();
+    }
+  }
+}
+setInterval(verificaLicenza, 6 * 3600000);
+
+// ---------------------------------------------------------------- server web
+const TIPI = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp", ".json": "application/json", ".woff2": "font/woff2", ".ico": "image/x-icon" };
+const json = (res, d, st = 200) => { res.writeHead(st, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }); res.end(JSON.stringify(d)); };
+function corpo(req, max = 2e6) {
+  return new Promise((ok, ko) => {
+    let b = ""; req.on("data", (c) => { b += c; if (b.length > max) { ko(new Error("Troppo grande")); req.destroy(); } });
+    req.on("end", () => { try { ok(b ? JSON.parse(b) : {}); } catch (e) { ko(new Error("JSON non valido")); } });
+  });
+}
+
+const CHIAVI_MODIFICABILI = ["stanze", "nascoste", "posizioni", "pianta", "energia", "agente", "raccolta", "sezioni", "tema"];
+
+async function api(req, res, p) {
+  if (p === "/api/stato" && req.method === "GET") {
+    return json(res, {
+      versione: VERSIONE, collegato: ha.pronto,
+      ha: { stati: Object.values(ha.stati), aree: ha.aree, dispositivi: ha.dispositivi, entita: ha.entita, config: ha.config, servizi: ha.servizi },
+      config: configPubblica(), diario, tunnel: tunnelStato,
+    });
+  }
+  if (p === "/api/eventi") {
+    res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive", "x-accel-buffering": "no" });
+    res.write("retry: 3000\n\n"); clientiSSE.add(res);
+    const k = setInterval(() => res.write(": ping\n\n"), 25000);
+    req.on("close", () => { clearInterval(k); clientiSSE.delete(res); });
+    return;
+  }
+  if (p === "/api/servizio" && req.method === "POST") {
+    const b = await corpo(req);
+    if (!/^[a-z_]+$/.test(b.dominio || "") || !/^[a-z0-9_]+$/.test(b.servizio || "")) return json(res, { ok: false, errore: "Servizio non valido" }, 400);
+    await servizio(b.dominio, b.servizio, b.dati || {});
+    return json(res, { ok: true });
+  }
+  if (p === "/api/assist" && req.method === "POST") {
+    const b = await corpo(req);
+    const r = await wsChiama({ type: "conversation/process", text: String(b.testo || "").slice(0, 500), language: ha.config.lingua || "it", conversation_id: b.conversazione || undefined }, 60000);
+    const sp = r && r.response && r.response.speech && r.response.speech.plain && r.response.speech.plain.speech;
+    return json(res, { ok: true, risposta: sp || "Fatto.", conversazione: r.conversation_id });
+  }
+  if (p === "/api/storico" && req.method === "GET") {
+    const u = new URL(req.url, "http://x"); const id = u.searchParams.get("id"); const ore = Math.min(24 * 31, Number(u.searchParams.get("ore") || 24));
+    if (!/^[a-z_]+\.[a-z0-9_]+$/.test(id || "")) return json(res, { ok: false }, 400);
+    const da = new Date(Date.now() - ore * 3600000).toISOString();
+    const d = await haRest("GET", `/api/history/period/${encodeURIComponent(da)}?filter_entity_id=${id}&minimal_response&no_attributes`);
+    return json(res, { ok: true, punti: (d[0] || []).map((x) => [x.last_changed || x.lu * 1000, parseFloat(x.state !== undefined ? x.state : x.s)]).filter((x) => !isNaN(x[1])) });
+  }
+  if (p.startsWith("/api/camera/") && req.method === "GET") {
+    const id = decodeURIComponent(p.slice(12));
+    if (!/^camera\.[a-z0-9_]+$/.test(id)) { res.writeHead(400); return res.end(); }
+    const r = await fetch(HA_HTTP + "/api/camera_proxy/" + id, { headers: { authorization: "Bearer " + TOKEN } });
+    res.writeHead(r.status, { "content-type": r.headers.get("content-type") || "image/jpeg", "cache-control": "no-store" });
+    return res.end(Buffer.from(await r.arrayBuffer()));
+  }
+  if (p === "/api/config" && req.method === "PUT") {
+    const b = await corpo(req);
+    for (const k of CHIAVI_MODIFICABILI) if (k in b) config[k] = b[k];
+    if (!completa()) { config.posizioni = config.posizioni || {}; }
+    salva();
+    inviaSSE("config", configPubblica());
+    return json(res, { ok: true, config: configPubblica() });
+  }
+  if (p === "/api/automazione" && req.method === "POST") {
+    const b = await corpo(req);
+    if (!b.alias || !Array.isArray(b.trigger) || !Array.isArray(b.action)) return json(res, { ok: false, errore: "Scenario incompleto" }, 400);
+    const id = "nexalia_" + Date.now();
+    await haRest("POST", "/api/config/automation/config/" + id, { id, alias: String(b.alias).slice(0, 80), description: "Creato con Nexalia", mode: "single", trigger: b.trigger, condition: b.condition || [], action: b.action });
+    await servizio("automation", "reload", {}).catch(() => {});
+    annota({ tipo: "fatto", icona: "scenari", titolo: "Nuovo scenario: " + b.alias });
+    return json(res, { ok: true, id });
+  }
+  if (p === "/api/automazione" && req.method === "DELETE") {
+    const b = await corpo(req);
+    if (!/^[A-Za-z0-9_]+$/.test(b.id || "")) return json(res, { ok: false }, 400);
+    await haRest("DELETE", "/api/config/automation/config/" + b.id);
+    return json(res, { ok: true });
+  }
+  if (p === "/api/backup" && req.method === "GET") {
+    if (!completa()) return json(res, { ok: false, errore: "Il backup è incluso nella licenza completa" }, 403);
+    const c = JSON.parse(JSON.stringify(config)); delete c.licenza; delete c.id_casa;
+    res.writeHead(200, { "content-type": "application/json", "content-disposition": `attachment; filename="nexalia-backup-${new Date().toISOString().slice(0, 10)}.json"` });
+    return res.end(JSON.stringify({ nexalia: VERSIONE, data: new Date().toISOString(), config: c }, null, 1));
+  }
+  if (p === "/api/backup" && req.method === "POST") {
+    if (!completa()) return json(res, { ok: false, errore: "Il ripristino è incluso nella licenza completa" }, 403);
+    const b = await corpo(req, 5e6);
+    if (!b.config) return json(res, { ok: false, errore: "File di backup non valido" }, 400);
+    for (const k of CHIAVI_MODIFICABILI) if (k in b.config) config[k] = b.config[k];
+    salva(); inviaSSE("config", configPubblica());
+    return json(res, { ok: true });
+  }
+  if (p === "/api/licenza/attiva" && req.method === "POST") { const b = await corpo(req); const r = await attivaLicenza(b.codice); inviaSSE("config", configPubblica()); return json(res, r, r.ok ? 200 : 400); }
+  if (p === "/api/licenza/disattiva" && req.method === "POST") { const r = await disattivaLicenza(); inviaSSE("config", configPubblica()); return json(res, r); }
+  if (p === "/api/licenza/verifica" && req.method === "POST") { await verificaLicenza(); inviaSSE("config", configPubblica()); return json(res, { ok: true, config: configPubblica(), tunnel: tunnelStato }); }
+  if (p === "/api/diario" && req.method === "DELETE") { diario.length = 0; return json(res, { ok: true }); }
+  return json(res, { ok: false, errore: "Non trovato" }, 404);
+}
+
+const server = http.createServer(async (req, res) => {
+  // HA Ingress: accetta solo il proxy del Supervisor (o localhost in prova)
+  const ip = req.socket.remoteAddress || "";
+  if (!process.env.NEXALIA_PROVA && !/^(::ffff:)?(172\.30\.32\.2|127\.0\.0\.1)$|^::1$/.test(ip)) { res.writeHead(403); return res.end("Accesso consentito solo da Home Assistant"); }
+  let p = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  try {
+    if (p.startsWith("/api/")) return await api(req, res, p);
+    if (p === "/") p = "/index.html";
+    const f = path.normalize(path.join(WWW, p));
+    if (!f.startsWith(WWW) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end("Non trovato"); }
+    res.writeHead(200, { "content-type": TIPI[path.extname(f)] || "application/octet-stream", "cache-control": p === "/index.html" ? "no-store" : "max-age=3600" });
+    fs.createReadStream(f).pipe(res);
+  } catch (e) {
+    log("Errore", p, e.message);
+    if (!res.headersSent) json(res, { ok: false, errore: e.message }, 500); else res.end();
+  }
+});
+
+server.listen(PORTA, () => {
+  log("Nexalia " + VERSIONE + " in ascolto sulla porta " + PORTA);
+  collegaHA();
+  if (completa()) { avviaTunnel(); verificaLicenza(); }
+});
+process.on("SIGTERM", () => { fermaTunnel(); process.exit(0); });
