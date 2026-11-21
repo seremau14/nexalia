@@ -71,8 +71,7 @@ label.campo span{font-weight:400;color:var(--mut);font-size:13px}
 .tess.allarme{border-color:#6A3A1E;background:#21160E}
 .tess.allarme .ico{color:var(--ambra);background:rgba(255,180,84,.15)}
 .tess.nondisp{opacity:.55}
-.tess .tg{position:absolute;top:14px;right:14px}
-.tess.con-tg .testa{padding-right:58px}
+.tess .tg{order:3;align-self:flex-end;margin-top:auto;flex:none;height:30px}
 .cursore{width:100%;accent-color:var(--blu);height:28px}
 .pulsanti{display:flex;gap:6px}
 .pulsanti .btn{flex:1;min-height:36px;padding:0 8px;font-size:13px}
@@ -176,7 +175,7 @@ label.campo span{font-weight:400;color:var(--mut);font-size:13px}
 .riassunto{display:flex;gap:10px;padding:14px;border-radius:12px;background:#0F1C2C;border:1px solid #23406A;font-size:14px;margin:14px 0}
 
 /* raccolta */
-.settimana{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.settimana{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .giorno{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;background:var(--card2);border:1px solid var(--line2)}
 .giorno b{font-size:13px}
 .giorno .tipo{height:6px;border-radius:6px}
@@ -245,3 +244,4 @@ th{color:var(--mut);font-weight:600}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:480px){.tessere{grid-template-columns:1fr}.tess{min-height:auto}}
+@media (max-width:1400px){.stato-ha span{display:none}.schede button{padding:0 11px}}
