@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.0.3";
+const VERSIONE = "1.0.4";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -236,8 +236,18 @@ function agenteCambio(id, vecchio, nuovo) {
 
 function piove() { return Object.values(ha.stati).some((x) => x.entity_id.startsWith("weather.") && ["rainy", "pouring", "lightning-rainy"].includes(x.state)); }
 
+// luci/interruttori di smart speaker e display (Echo Show ecc.): non sono vere luci
+function accessorio(id) {
+  const e = ha.entita.find((x) => x.id === id);
+  if (/\b(echo|alexa)\b|non disturbare|do not disturb/i.test(nome(id) + " " + id)) return true;
+  if (!e || !e.dispositivo) return false;
+  const d = ha.dispositivi.find((x) => x.id === e.dispositivo) || {};
+  if (/amazon|echo|alexa|google home|nest (hub|mini|audio)|sonos|homepod/i.test([d.produttore, d.modello, d.nome].join(" "))) return true;
+  return ha.entita.some((x) => x.dispositivo === e.dispositivo && /^(media_player|assist_satellite)\./.test(x.id));
+}
+
 async function uscitiTutti() {
-  const accese = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("light.") && x.state === "on");
+  const accese = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("light.") && x.state === "on" && !accessorio(x.entity_id));
   if (config.agente.spegni_luci_uscita && accese.length) {
     try {
       await servizio("light", "turn_off", { entity_id: accese.map((x) => x.entity_id) });

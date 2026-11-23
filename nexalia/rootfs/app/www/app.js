@@ -88,6 +88,27 @@ function areaEntita(id) {
   const d = e.dispositivo && S.dispositivi.find((x) => x.id === e.dispositivo);
   return d ? d.area : null;
 }
+// Luci e interruttori che appartengono a smart speaker / display (es. Echo Show: schermo, "non disturbare",
+// riproduzione casuale…) non sono vere luci o prese: li trattiamo come impostazioni del dispositivo multimediale.
+let ACCESSORI = null;
+function calcolaAccessori() {
+  const perDisp = {};
+  for (const e of S.entita) if (e.dispositivo) (perDisp[e.dispositivo] = perDisp[e.dispositivo] || []).push(e.id);
+  const disp = {}; for (const d of S.dispositivi) disp[d.id] = d;
+  const out = new Set();
+  for (const [did, ids] of Object.entries(perDisp)) {
+    const d = disp[did] || {};
+    const testo = [d.produttore, d.modello, d.nome].join(" ");
+    const speaker = /amazon|echo|alexa|google home|nest (hub|mini|audio)|sonos|homepod/i.test(testo) || ids.some((x) => /^(media_player|assist_satellite)\./.test(x));
+    if (speaker) for (const x of ids) if (/^(light|switch)\./.test(x)) out.add(x);
+  }
+  for (const id of Object.keys(S.stati)) if (/^(light|switch)\./.test(id) && /\b(echo|alexa)\b|non disturbare|do not disturb|riproduzione casuale|shuffle|repeat|ripeti/i.test(nomeE(id) + " " + id)) out.add(id);
+  ACCESSORI = out;
+}
+const accessorio = (id) => { if (!ACCESSORI) calcolaAccessori(); return ACCESSORI.has(id); };
+const eLuce = (id) => dom(id) === "light" && !accessorio(id);
+const ePresa = (id) => ["switch", "input_boolean", "fan"].includes(dom(id)) && !accessorio(id);
+
 function visibile(id) {
   if (!st(id) || (S.cfg.nascoste || []).includes(id)) return false;
   if (!DOMINI_UTILI.includes(dom(id))) return false;
@@ -107,6 +128,7 @@ function tempStanza(s) {
 }
 function iconaE(id) {
   const d = dom(id), c = attr(id, "device_class");
+  if (accessorio(id)) return "media";
   return ({ light: "luci", switch: c === "outlet" ? "presa" : "presa", fan: "ventola", cover: "tapparelle", climate: "clima", lock: "lucchetto", media_player: "media", camera: "telecamere", vacuum: "robot", alarm_control_panel: "sicurezza", scene: "scenari", script: "scenari", water_heater: "goccia", valve: "goccia", humidifier: "goccia" })[d]
     || ({ temperature: "clima", humidity: "goccia", power: "energia", energy: "energia", battery: "batteria", motion: "movimento", occupancy: "movimento", presence: "movimento", door: "porte", garage_door: "porte", window: "finestra", opening: "finestra", smoke: "allerta", gas: "allerta", moisture: "goccia" })[c] || "sensore";
 }
@@ -138,7 +160,7 @@ function tessera(id) {
   const nd = v === "unavailable" ? " nondisp" : "";
   let extra = "", azione = "", cls = "";
   if (d === "light") {
-    cls = "luce cliccabile"; azione = `data-az="toggle"`;
+    cls = (accessorio(id) ? "" : "luce ") + "cliccabile"; azione = `data-az="toggle"`;
     if (v === "on" && s.attributes.brightness != null) extra = `<input class="cursore" type="range" min="1" max="100" value="${Math.round(s.attributes.brightness / 2.55)}" data-luminosita="${id}" aria-label="Luminosità ${esc(nomeE(id))}">`;
   } else if (["switch", "input_boolean", "fan"].includes(d)) { cls = "cliccabile"; azione = `data-az="toggle"`; }
   else if (d === "cover") {
@@ -162,7 +184,7 @@ const ORDINE = ["light", "switch", "fan", "cover", "climate", "media_player", "l
 const GRUPPI = { light: "Luci", switch: "Prese e interruttori", input_boolean: "Prese e interruttori", fan: "Ventilazione", cover: "Tapparelle e tende", climate: "Clima", media_player: "Multimedia", lock: "Serrature", vacuum: "Robot", camera: "Telecamere", humidifier: "Clima", water_heater: "Acqua calda", valve: "Valvole", scene: "Scene", script: "Scene", button: "Pulsanti", binary_sensor: "Sensori", sensor: "Misure", alarm_control_panel: "Allarme" };
 function tesserePerGruppo(ids) {
   const g = {};
-  for (const id of ids) { const k = GRUPPI[dom(id)] || "Altro"; (g[k] = g[k] || []).push(id); }
+  for (const id of ids) { const k = accessorio(id) ? "Multimedia" : GRUPPI[dom(id)] || "Altro"; (g[k] = g[k] || []).push(id); }
   const ord = Object.keys(g).sort((a, b) => ORDINE.findIndex((d) => GRUPPI[d] === a) - ORDINE.findIndex((d) => GRUPPI[d] === b));
   return ord.map((k) => `<div class="gruppo">${k}</div><div class="tessere">${g[k].map(tessera).join("")}</div>`).join("");
 }
@@ -220,13 +242,13 @@ function vAgente() {
   const aperte = aperture.filter((id) => st(id).state === "on");
   const allarme = Object.keys(S.stati).find((id) => dom(id) === "alarm_control_panel");
   const consumo = S.cfg.energia.casa ? watt(S.cfg.energia.casa) : null;
-  const luciAccese = Object.keys(S.stati).filter((id) => dom(id) === "light" && st(id).state === "on").length;
+  const luciAccese = Object.keys(S.stati).filter((id) => eLuce(id) && st(id).state === "on").length;
   let frase = ultima ? ultima.titolo : (S.collegato ? `Tutto tranquillo. ${luciAccese ? luciAccese + (luciAccese === 1 ? " luce accesa" : " luci accese") : "Luci spente"}${aperte.length ? ", " + aperte.length + (aperte.length === 1 ? " apertura aperta" : " aperture aperte") : ""}.` : "Mi sto collegando a Home Assistant…");
   return `<div class="agente">
     <section class="card"><div class="dim" style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Cosa succede in casa</div>
       <div class="ora">${ora(d)} · <span style="text-transform:capitalize">${giorno}</span></div>
       <div class="gruppo">Stanze</div>
-      <div class="stanze-mini">${ss.map((s) => { const t = tempStanza(s); const l = s.entita.filter((id) => dom(id) === "light" && st(id).state === "on").length; return `<button class="st-mini ${l ? "on" : ""}" data-apri-stanza="${esc(s.id)}"><b>${esc(s.nome)}</b><span>${t != null ? fmt1(t) + "°" : "—"}</span><small>${l ? l + (l === 1 ? " luce accesa" : " luci accese") : s.entita.length + " dispositivi"}</small></button>`; }).join("") || '<div class="dim">Crea le stanze in Stanze › Gestisci stanze.</div>'}</div>
+      <div class="stanze-mini">${ss.map((s) => { const t = tempStanza(s); const l = s.entita.filter((id) => eLuce(id) && st(id).state === "on").length; return `<button class="st-mini ${l ? "on" : ""}" data-apri-stanza="${esc(s.id)}"><b>${esc(s.nome)}</b><span>${t != null ? fmt1(t) + "°" : "—"}</span><small>${l ? l + (l === 1 ? " luce accesa" : " luci accese") : s.entita.length + " dispositivi"}</small></button>`; }).join("") || '<div class="dim">Crea le stanze in Stanze › Gestisci stanze.</div>'}</div>
     </section>
     <section class="card centro">
       <div class="orb ${tipo}"><div class="anello"></div><div class="anello b"></div><div class="nucleo">${ico(ultima ? (ICONE_DIARIO[ultima.icona] || "agente") : "agente", "l")}</div></div>
@@ -259,7 +281,7 @@ function vStanze() {
     <section class="card"><div class="tit"><h2>Stanze</h2><button class="btn pic" data-gestisci-stanze>${ico("matita", "s")}Gestisci</button></div>
       <div class="elenco">${ss.map((x) => { const t = tempStanza(x); return `<button class="${x.id === S.stanza ? "on" : ""}" data-stanza="${esc(x.id)}"><span><b>${esc(x.nome)}</b><small>${x.entita.length} dispositivi</small></span><span>${t != null ? fmt1(t) + "°" : ""}</span></button>`; }).join("") || '<div class="vuoto">Nessuna stanza. Premi Gestisci per crearle o importarle dalle aree di Home Assistant.</div>'}</div>
     </section>
-    <section class="card">${s ? `<div class="tit"><div><div class="dim" style="font-size:12px">Stanza</div><h2 style="font-size:26px">${esc(s.nome)}</h2></div><div class="riga">${tempStanza(s) != null ? `<b style="font-size:24px">${fmt1(tempStanza(s))}°</b>` : ""}${s.entita.some((id) => dom(id) === "light") ? `<button class="btn pic" data-tutte-luci="${esc(s.id)}" data-v="turn_off">Spegni luci</button>` : ""}</div></div>${tesserePerGruppo(s.entita.filter(visibileStanza))}` : '<div class="vuoto">Seleziona una stanza.</div>'}</section>
+    <section class="card">${s ? `<div class="tit"><div><div class="dim" style="font-size:12px">Stanza</div><h2 style="font-size:26px">${esc(s.nome)}</h2></div><div class="riga">${tempStanza(s) != null ? `<b style="font-size:24px">${fmt1(tempStanza(s))}°</b>` : ""}${s.entita.some(eLuce) ? `<button class="btn pic" data-tutte-luci="${esc(s.id)}" data-v="turn_off">Spegni luci</button>` : ""}</div></div>${tesserePerGruppo(s.entita.filter(visibileStanza))}` : '<div class="vuoto">Seleziona una stanza.</div>'}</section>
   </div>`;
 }
 const visibileStanza = (id) => st(id) && !(S.cfg.nascoste || []).includes(id);
@@ -289,9 +311,9 @@ function dispositiviStanza(idSt) {
 
 // ---------- Comandi
 function vComandi() {
-  const luci = Object.keys(S.stati).filter((id) => dom(id) === "light" && visibile(id));
+  const luci = Object.keys(S.stati).filter((id) => eLuce(id) && visibile(id));
   const tap = Object.keys(S.stati).filter((id) => dom(id) === "cover" && visibile(id));
-  const prese = Object.keys(S.stati).filter((id) => ["switch", "input_boolean", "fan"].includes(dom(id)) && visibile(id));
+  const prese = Object.keys(S.stati).filter((id) => ePresa(id) && visibile(id));
   const acc = luci.filter((id) => st(id).state === "on").length, aperte = tap.filter((id) => st(id).state !== "closed").length;
   return `<section class="card"><div class="riga">
       <div class="riga" style="gap:12px">${ico("luci")}<div><b>Tutte le luci</b><div class="dim" style="font-size:13px">${acc} accese su ${luci.length}</div></div><button class="btn a pic" data-gruppo="light" data-v="turn_on">Accendi tutte</button><button class="btn pic" data-gruppo="light" data-v="turn_off">Spegni tutte</button></div>
@@ -325,8 +347,8 @@ function vCasa3d() {
   let maxX = 0, maxY = 0; for (const s of ss) { const r = p[s.id]; maxX = Math.max(maxX, r.x + r.w); maxY = Math.max(maxY, r.y + r.h); }
   const W = maxX * CELLA, H = maxY * CELLA;
   const stanzeHtml = ss.map((s) => {
-    const r = p[s.id], luce = s.entita.some((id) => dom(id) === "light" && st(id).state === "on"), t = tempStanza(s);
-    const pins = s.entita.filter((id) => ["light", "switch", "cover", "lock", "climate", "fan", "media_player", "input_boolean"].includes(dom(id)) && visibileStanza(id)).map((id, i) => {
+    const r = p[s.id], luce = s.entita.some((id) => eLuce(id) && st(id).state === "on"), t = tempStanza(s);
+    const pins = s.entita.filter((id) => ["light", "switch", "cover", "lock", "climate", "fan", "media_player", "input_boolean"].includes(dom(id)) && !accessorio(id) && visibileStanza(id)).map((id, i) => {
       const pos = (S.cfg.posizioni || {})[id] || { x: 20 + (i % 4) * 20, y: 35 + Math.floor(i / 4) * 25 };
       const on = ACCESO.includes(st(id).state);
       return `<div class="c3d-pin ${dom(id) === "light" ? "" : "blu"} ${on ? "on" : ""}" style="left:${pos.x}%;top:${pos.y}%" data-pin="${id}" title="${esc(nomeE(id))}: ${esc(testoStato(id))}">${ico(iconaE(id))}</div>`;
@@ -588,7 +610,7 @@ function vImpostazioni() {
   </div>`;
 }
 function scegliDifferibili() {
-  const ids = Object.keys(S.stati).filter((id) => ["switch", "input_boolean"].includes(dom(id))).sort((a, b) => nomeE(a).localeCompare(nomeE(b)));
+  const ids = Object.keys(S.stati).filter((id) => ["switch", "input_boolean"].includes(dom(id)) && !accessorio(id)).sort((a, b) => nomeE(a).localeCompare(nomeE(b)));
   const sel = S.cfg.energia.differibili || [];
   finestra(`<div class="tit"><h2>Carichi da spegnere</h2><button class="btn pic" data-chiudi aria-label="Chiudi">${ico("chiudi", "s")}</button></div><p class="mut">Se la casa sta per superare il contatore, Nexalia spegne il primo di questi che trova acceso.</p>
     <div class="lista-sel" id="listaDiff">${ids.map((id) => `<label><input type="checkbox" value="${id}" ${sel.includes(id) ? "checked" : ""}>${ico(iconaE(id), "s")}<span>${esc(nomeE(id))}</span><small>${esc(testoStato(id))}</small></label>`).join("") || '<div class="dim">Nessuna presa o interruttore.</div>'}</div>
@@ -614,8 +636,8 @@ document.addEventListener("click", async (ev) => {
   if (d.lock) return chiama("lock", d.lock, { entity_id: d.id });
   if (d.media) return chiama("media_player", d.media, { entity_id: d.id });
   if (d.vac) return chiama("vacuum", d.vac, { entity_id: d.id });
-  if (d.gruppo) { const ids = Object.keys(S.stati).filter((id) => dom(id) === d.gruppo && visibile(id)); if (ids.length) chiama(d.gruppo, d.v, { entity_id: ids }); return; }
-  if (d.tutteLuci) { const s = stanze().find((x) => x.id === d.tutteLuci); const ids = s.entita.filter((id) => dom(id) === "light"); return chiama("light", d.v, { entity_id: ids }); }
+  if (d.gruppo) { const ids = Object.keys(S.stati).filter((id) => dom(id) === d.gruppo && !accessorio(id) && visibile(id)); if (ids.length) chiama(d.gruppo, d.v, { entity_id: ids }); return; }
+  if (d.tutteLuci) { const s = stanze().find((x) => x.id === d.tutteLuci); const ids = s.entita.filter(eLuce); return chiama("light", d.v, { entity_id: ids }); }
   if (d.pin && !modifica3d) { const id = d.pin, dm = dom(id); if (dm === "cover") return chiama("cover", st(id).state === "closed" ? "open_cover" : "close_cover", { entity_id: id }); if (dm === "lock") return chiama("lock", st(id).state === "locked" ? "unlock" : "lock", { entity_id: id }); if (dm === "climate") return vai("stanze"); return chiama(dm === "light" ? "light" : "homeassistant", "toggle", { entity_id: id }); }
   if (d.azzDiario !== undefined) { await api("api/diario", { metodo: "DELETE" }).catch(() => {}); S.diario = []; rispostaAssist = ""; return disegna(); }
   // stanze
@@ -723,7 +745,7 @@ async function carica() {
   try {
     const d = await api("api/stato");
     S.stati = Object.fromEntries(d.ha.stati.map((s) => [s.entity_id, s]));
-    S.aree = d.ha.aree; S.dispositivi = d.ha.dispositivi; S.entita = d.ha.entita; S.haConfig = d.ha.config; S.servizi = d.ha.servizi;
+    S.aree = d.ha.aree; S.dispositivi = d.ha.dispositivi; S.entita = d.ha.entita; ACCESSORI = null; S.haConfig = d.ha.config; S.servizi = d.ha.servizi;
     S.cfg = d.config; S.diario = d.diario; S.collegato = d.collegato; S.tunnel = d.tunnel; S.versione = d.versione; S.aggiornamento = d.aggiornamento;
     aggiornaStatoHa(); disegnaSchede(); disegna();
   } catch (e) {

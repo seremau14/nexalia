@@ -1,5 +1,8 @@
 # Novità
 
+## 1.0.4
+- Echo Show, Echo e altri smart speaker/display non vengono più contati come luci o prese: schermo, "non disturbare" e simili finiscono sotto Multimedia e sono esclusi da "Tutte le luci", dai conteggi dell'agente e dalla Casa 3D.
+
 ## 1.0.3
 - Quando esce una nuova versione, Nexalia lo segnala con una notifica in Home Assistant, un avviso in cima alla plancia e il pulsante Aggiorna.
 - Nuovo pulsante "Cerca aggiornamenti" in Impostazioni.
