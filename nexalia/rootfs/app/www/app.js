@@ -51,7 +51,11 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const dom = (id) => id.split(".")[0];
 const st = (id) => S.stati[id];
-const nomeE = (id) => { const s = st(id); return (s && s.attributes.friendly_name) || id; };
+function nomeE(id) {
+  const s = st(id); const n = (s && s.attributes.friendly_name) || id;
+  const m = n.match(/^(.+?)\s+(socket|switch|presa|interruttore|relay|outlet|channel|canale|plug|l)\s*\d*$/i);
+  return m ? m[1].trim() : n;
+}
 const attr = (id, k) => { const s = st(id); return s ? s.attributes[k] : undefined; };
 const num = (id) => { const s = st(id); if (!s) return null; const v = parseFloat(s.state); return isNaN(v) ? null : v; };
 const watt = (id) => { const v = num(id); if (v == null) return null; return (attr(id, "unit_of_measurement") || "").toLowerCase() === "kw" ? v * 1000 : v; };
@@ -88,26 +92,37 @@ function areaEntita(id) {
   const d = e.dispositivo && S.dispositivi.find((x) => x.id === e.dispositivo);
   return d ? d.area : null;
 }
-// Luci e interruttori che appartengono a smart speaker / display (es. Echo Show: schermo, "non disturbare",
-// riproduzione casuale…) non sono vere luci o prese: li trattiamo come impostazioni del dispositivo multimediale.
-let ACCESSORI = null;
+// Tipo di dispositivo: le entità di telecamere e smart speaker/display (Echo Show, Nest, Sonos, telecamere Tapo…)
+// non sono luci, prese o finestre della casa (faretto della telecamera, schermo dell'Echo, copriobiettivo…).
+let ACCESSORI = null, TIPO_DISP = null;
 function calcolaAccessori() {
   const perDisp = {};
   for (const e of S.entita) if (e.dispositivo) (perDisp[e.dispositivo] = perDisp[e.dispositivo] || []).push(e.id);
   const disp = {}; for (const d of S.dispositivi) disp[d.id] = d;
-  const out = new Set();
+  const out = new Map(); TIPO_DISP = {};
   for (const [did, ids] of Object.entries(perDisp)) {
     const d = disp[did] || {};
     const testo = [d.produttore, d.modello, d.nome].join(" ");
-    const speaker = /amazon|echo|alexa|google home|nest (hub|mini|audio)|sonos|homepod/i.test(testo) || ids.some((x) => /^(media_player|assist_satellite)\./.test(x));
-    if (speaker) for (const x of ids) if (/^(light|switch)\./.test(x)) out.add(x);
+    let tipo = null;
+    if (/amazon|echo|alexa|google home|nest (hub|mini|audio)|sonos|homepod/i.test(testo) || ids.some((x) => /^(media_player|assist_satellite)\./.test(x))) tipo = "Multimedia";
+    else if (ids.some((x) => /^camera\./.test(x))) tipo = "Telecamere";
+    TIPO_DISP[did] = tipo;
+    if (tipo) for (const x of ids) if (/^(light|switch|binary_sensor|button)\./.test(x)) out.set(x, tipo);
   }
-  for (const id of Object.keys(S.stati)) if (/^(light|switch)\./.test(id) && /\b(echo|alexa)\b|non disturbare|do not disturb|riproduzione casuale|shuffle|repeat|ripeti/i.test(nomeE(id) + " " + id)) out.add(id);
+  for (const id of Object.keys(S.stati)) if (!out.has(id) && /^(light|switch)\./.test(id) && /\b(echo|alexa)\b|non disturbare|do not disturb|riproduzione casuale|shuffle|repeat|ripeti/i.test(nomeE(id) + " " + id)) out.set(id, "Multimedia");
   ACCESSORI = out;
 }
 const accessorio = (id) => { if (!ACCESSORI) calcolaAccessori(); return ACCESSORI.has(id); };
+const gruppoAccessorio = (id) => { if (!ACCESSORI) calcolaAccessori(); return ACCESSORI.get(id); };
 const eLuce = (id) => dom(id) === "light" && !accessorio(id);
-const ePresa = (id) => ["switch", "input_boolean", "fan"].includes(dom(id)) && !accessorio(id);
+// presa = interruttore che alimenta qualcosa: classe "outlet" o dispositivo/nome da presa smart
+function ePresa(id) {
+  if (dom(id) !== "switch" || accessorio(id)) return false;
+  if (attr(id, "device_class") === "outlet") return true;
+  const e = S.entita.find((x) => x.id === id), d = e && e.dispositivo && S.dispositivi.find((x) => x.id === e.dispositivo);
+  return /pres[ae]|plug|socket|outlet|spina/i.test(nomeE(id) + " " + (d ? [d.modello, d.nome].join(" ") : ""));
+}
+const eApertura = (id) => dom(id) === "binary_sensor" && ["door", "window", "garage_door", "opening"].includes(attr(id, "device_class")) && !accessorio(id);
 
 function visibile(id) {
   if (!st(id) || (S.cfg.nascoste || []).includes(id)) return false;
@@ -128,7 +143,7 @@ function tempStanza(s) {
 }
 function iconaE(id) {
   const d = dom(id), c = attr(id, "device_class");
-  if (accessorio(id)) return "media";
+  const ga = gruppoAccessorio(id); if (ga) return ga === "Telecamere" ? "telecamere" : "media";
   return ({ light: "luci", switch: c === "outlet" ? "presa" : "presa", fan: "ventola", cover: "tapparelle", climate: "clima", lock: "lucchetto", media_player: "media", camera: "telecamere", vacuum: "robot", alarm_control_panel: "sicurezza", scene: "scenari", script: "scenari", water_heater: "goccia", valve: "goccia", humidifier: "goccia" })[d]
     || ({ temperature: "clima", humidity: "goccia", power: "energia", energy: "energia", battery: "batteria", motion: "movimento", occupancy: "movimento", presence: "movimento", door: "porte", garage_door: "porte", window: "finestra", opening: "finestra", smoke: "allerta", gas: "allerta", moisture: "goccia" })[c] || "sensore";
 }
@@ -174,18 +189,19 @@ function tessera(id) {
   else if (d === "media_player" && v !== "off") { extra = `<div class="pulsanti"><button class="btn" data-media="media_play_pause" data-id="${id}">${v === "playing" ? "Pausa" : "Play"}</button><button class="btn" data-media="volume_down" data-id="${id}">−</button><button class="btn" data-media="volume_up" data-id="${id}">+</button></div>`; }
   else if (d === "vacuum") { extra = `<div class="pulsanti"><button class="btn" data-vac="${v === "cleaning" ? "pause" : "start"}" data-id="${id}">${v === "cleaning" ? "Pausa" : "Pulisci"}</button><button class="btn" data-vac="return_to_base" data-id="${id}">Base</button></div>`; }
   else if (d === "scene" || d === "script" || d === "button") { cls = "cliccabile"; azione = `data-az="esegui"`; }
-  if (pericolo(id) || (d === "binary_sensor" && v === "on" && ["door", "window", "garage_door", "opening"].includes(s.attributes.device_class))) cls += " allarme";
+  if (pericolo(id) || (eApertura(id) && v === "on")) cls += " allarme";
   const tg = ["light", "switch", "input_boolean", "fan"].includes(d) ? `<span class="tg ${on ? "on" : ""}" aria-hidden="true"></span>` : "";
   return `<div class="tess ${on && !["binary_sensor", "sensor"].includes(d) ? "on" : ""} ${cls}${nd}${tg ? " con-tg" : ""}" data-id="${id}" ${azione} ${azione ? 'role="button" tabindex="0"' : ""}>
     <div class="testa"><div class="ico">${ico(iconaE(id))}</div><div><div class="nome">${esc(nomeE(id))}</div><div class="val">${esc(testoStato(id))}</div></div></div>${tg}${extra}</div>`;
 }
 
 const ORDINE = ["light", "switch", "fan", "cover", "climate", "media_player", "lock", "vacuum", "camera", "input_boolean", "humidifier", "water_heater", "valve", "scene", "script", "button", "binary_sensor", "sensor", "alarm_control_panel"];
-const GRUPPI = { light: "Luci", switch: "Prese e interruttori", input_boolean: "Prese e interruttori", fan: "Ventilazione", cover: "Tapparelle e tende", climate: "Clima", media_player: "Multimedia", lock: "Serrature", vacuum: "Robot", camera: "Telecamere", humidifier: "Clima", water_heater: "Acqua calda", valve: "Valvole", scene: "Scene", script: "Scene", button: "Pulsanti", binary_sensor: "Sensori", sensor: "Misure", alarm_control_panel: "Allarme" };
+const GRUPPI = { light: "Luci", switch: "Interruttori", input_boolean: "Interruttori", fan: "Ventilazione", cover: "Tapparelle e tende", climate: "Clima", media_player: "Multimedia", lock: "Serrature", vacuum: "Robot", camera: "Telecamere", humidifier: "Clima", water_heater: "Acqua calda", valve: "Valvole", scene: "Scene", script: "Scene", button: "Pulsanti", binary_sensor: "Sensori", sensor: "Misure", alarm_control_panel: "Allarme" };
 function tesserePerGruppo(ids) {
   const g = {};
-  for (const id of ids) { const k = accessorio(id) ? "Multimedia" : GRUPPI[dom(id)] || "Altro"; (g[k] = g[k] || []).push(id); }
-  const ord = Object.keys(g).sort((a, b) => ORDINE.findIndex((d) => GRUPPI[d] === a) - ORDINE.findIndex((d) => GRUPPI[d] === b));
+  for (const id of ids) { const k = gruppoAccessorio(id) || (ePresa(id) ? "Prese" : GRUPPI[dom(id)]) || "Altro"; (g[k] = g[k] || []).push(id); }
+  const pos = (k) => { const o = ["Luci", "Prese", "Interruttori", "Tapparelle e tende", "Clima", "Ventilazione", "Multimedia", "Telecamere", "Serrature", "Robot", "Scene", "Pulsanti", "Sensori", "Misure", "Allarme"].indexOf(k); return o < 0 ? 99 : o; };
+  const ord = Object.keys(g).sort((a, b) => pos(a) - pos(b));
   return ord.map((k) => `<div class="gruppo">${k}</div><div class="tessere">${g[k].map(tessera).join("")}</div>`).join("");
 }
 
@@ -225,6 +241,7 @@ function disegna() {
   if (idAtt && document.getElementById(idAtt)) document.getElementById(idAtt).focus();
   if (S.scheda === "casa3d") dopoCasa3d();
   if (S.scheda === "energia") disegnaGrafico();
+  if (S.scheda === "impostazioni") disegnaQR();
 }
 
 // ---------- Agente
@@ -238,7 +255,7 @@ function vAgente() {
   const tipo = ultima ? ultima.tipo : "info";
   const persone = Object.values(S.stati).filter((x) => x.entity_id.startsWith("person."));
   const inCasa = persone.filter((p) => p.state === "home").length;
-  const aperture = Object.keys(S.stati).filter((id) => dom(id) === "binary_sensor" && ["door", "window", "garage_door", "opening"].includes(attr(id, "device_class")));
+  const aperture = Object.keys(S.stati).filter(eApertura);
   const aperte = aperture.filter((id) => st(id).state === "on");
   const allarme = Object.keys(S.stati).find((id) => dom(id) === "alarm_control_panel");
   const consumo = S.cfg.energia.casa ? watt(S.cfg.energia.casa) : null;
@@ -314,6 +331,7 @@ function vComandi() {
   const luci = Object.keys(S.stati).filter((id) => eLuce(id) && visibile(id));
   const tap = Object.keys(S.stati).filter((id) => dom(id) === "cover" && visibile(id));
   const prese = Object.keys(S.stati).filter((id) => ePresa(id) && visibile(id));
+  const altri = Object.keys(S.stati).filter((id) => ((dom(id) === "switch" && !ePresa(id)) || ["input_boolean", "fan"].includes(dom(id))) && !accessorio(id) && visibile(id));
   const acc = luci.filter((id) => st(id).state === "on").length, aperte = tap.filter((id) => st(id).state !== "closed").length;
   return `<section class="card"><div class="riga">
       <div class="riga" style="gap:12px">${ico("luci")}<div><b>Tutte le luci</b><div class="dim" style="font-size:13px">${acc} accese su ${luci.length}</div></div><button class="btn a pic" data-gruppo="light" data-v="turn_on">Accendi tutte</button><button class="btn pic" data-gruppo="light" data-v="turn_off">Spegni tutte</button></div>
@@ -322,8 +340,9 @@ function vComandi() {
     </div>
     ${luci.length ? `<div class="gruppo">Luci</div><div class="tessere">${luci.map(tessera).join("")}</div>` : ""}
     ${tap.length ? `<div class="gruppo">Tapparelle</div><div class="tessere">${tap.map(tessera).join("")}</div>` : ""}
-    ${prese.length ? `<div class="gruppo">Prese e interruttori</div><div class="tessere">${prese.map(tessera).join("")}</div>` : ""}
-    ${!luci.length && !tap.length && !prese.length ? '<div class="vuoto">Nessun dispositivo da comandare trovato in Home Assistant.</div>' : ""}
+    ${prese.length ? `<div class="gruppo">Prese</div><div class="tessere">${prese.map(tessera).join("")}</div>` : ""}
+    ${altri.length ? `<div class="gruppo">Altri interruttori</div><div class="tessere">${altri.map(tessera).join("")}</div>` : ""}
+    ${!luci.length && !tap.length && !prese.length && !altri.length ? '<div class="vuoto">Nessun dispositivo da comandare trovato in Home Assistant.</div>' : ""}
   </section>`;
 }
 
@@ -453,19 +472,19 @@ async function disegnaGrafico() {
 let pin = "", pinPer = null;
 function vSicurezza() {
   const all = Object.keys(S.stati).filter((id) => dom(id) === "alarm_control_panel");
-  const ap = Object.keys(S.stati).filter((id) => dom(id) === "binary_sensor" && ["door", "window", "garage_door", "opening"].includes(attr(id, "device_class")) && visibileStanza(id));
+  const ap = Object.keys(S.stati).filter((id) => eApertura(id) && visibileStanza(id));
   const per = Object.keys(S.stati).filter((id) => dom(id) === "binary_sensor" && ["smoke", "gas", "moisture", "carbon_monoxide"].includes(attr(id, "device_class")));
   const serr = Object.keys(S.stati).filter((id) => dom(id) === "lock");
   const cam = Object.keys(S.stati).filter((id) => dom(id) === "camera" && visibileStanza(id));
   return `<div class="griglia" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr))">
-    <section class="card"><h2>Allarme</h2>${all.map((id) => { const v = st(id).state, cls = v === "disarmed" ? "disarmed" : v === "triggered" ? "triggered" : "armed"; return `<div class="allarme-stato ${cls}" style="margin-bottom:12px">${ico("sicurezza", "l")}<div style="flex:1"><div class="dim" style="font-size:12px">${esc(nomeE(id))}</div><b>${testoAllarme(v)}</b></div></div>
-      <div class="riga" style="margin-bottom:16px">${v === "disarmed" ? `<button class="btn a" data-arma="alarm_arm_away" data-id="${id}">Inserisci totale</button><button class="btn p" data-arma="alarm_arm_home" data-id="${id}">In casa</button><button class="btn" data-arma="alarm_arm_night" data-id="${id}">Notte</button>` : `<button class="btn" data-arma="alarm_disarm" data-id="${id}">Disinserisci</button>`}</div>`; }).join("") || '<div class="dim">Nessuna centrale d\'allarme in Home Assistant.</div>'}
+    <section class="card"><h2>Allarme</h2>${all.map((id) => { const v = st(id).state, cls = ["unavailable", "unknown"].includes(v) ? "" : v === "disarmed" ? "disarmed" : v === "triggered" ? "triggered" : "armed"; return `<div class="allarme-stato ${cls}" style="margin-bottom:12px">${ico("sicurezza", "l")}<div style="flex:1"><div class="dim" style="font-size:12px">${esc(nomeE(id))}</div><b>${testoAllarme(v)}</b></div></div>
+      <div class="riga" style="margin-bottom:16px">${["unavailable", "unknown"].includes(v) ? `<span class="dim">La centrale non risponde: controlla l'integrazione in Home Assistant.</span>` : v === "disarmed" ? `<button class="btn a" data-arma="alarm_arm_away" data-id="${id}">Inserisci totale</button><button class="btn p" data-arma="alarm_arm_home" data-id="${id}">In casa</button><button class="btn" data-arma="alarm_arm_night" data-id="${id}">Notte</button>` : `<button class="btn" data-arma="alarm_disarm" data-id="${id}">Disinserisci</button>`}</div>`; }).join("") || '<div class="dim">Nessuna centrale d\'allarme in Home Assistant.</div>'}
       ${per.length ? `<div class="gruppo">Sensori di sicurezza</div><div class="tessere">${per.map(tessera).join("")}</div>` : ""}
       ${serr.length ? `<div class="gruppo">Serrature</div><div class="tessere">${serr.map(tessera).join("")}</div>` : ""}
     </section>
     <section class="card"><div class="tit"><h2>Porte e finestre</h2><span class="badge ${ap.some((id) => st(id).state === "on") ? "fuori" : "casa"}">${ap.filter((id) => st(id).state === "on").length} aperte</span></div><div class="tessere">${ap.map(tessera).join("") || '<div class="dim">Nessun sensore di apertura.</div>'}</div></section>
   </div>
-  ${cam.length ? `<section class="card" style="margin-top:16px"><h2>Telecamere</h2><div class="telecamere">${cam.map((id) => `<figure><img src="api/camera/${encodeURIComponent(id)}?t=${Math.floor(Date.now() / 10000)}" alt="${esc(nomeE(id))}" loading="lazy"><figcaption>${esc(nomeE(id))}</figcaption></figure>`).join("")}</div></section>` : ""}`;
+  ${cam.length ? `<section class="card" style="margin-top:16px"><h2>Telecamere</h2><div class="telecamere">${cam.map((id) => st(id).state === "unavailable" ? `<figure><div class="cam-off">${ico("telecamere", "l")}<span>Non disponibile</span></div><figcaption>${esc(nomeE(id))}</figcaption></figure>` : `<figure><img src="api/camera/${encodeURIComponent(id)}?t=${Math.floor(Date.now() / 10000)}" alt="${esc(nomeE(id))}" loading="lazy" onerror="this.outerHTML='<div class=cam-off>Immagine non disponibile</div>'"><figcaption>${esc(nomeE(id))}</figcaption></figure>`).join("")}</div></section>` : ""}`;
 }
 function tastierino(id, servizio) {
   const s = st(id);
@@ -572,14 +591,26 @@ function vImpostazioni() {
     <section class="card"><div class="tit"><h2>Licenza</h2><span class="badge ${completa() ? "casa" : "blu"}">${completa() ? "Completa" : l.stato === "scaduta" ? "Scaduta" : "Gratuita"}</span></div>
       ${l.messaggio ? `<div class="lic-ko" style="margin-bottom:12px">${esc(l.messaggio)}</div>` : ""}
       ${completa() ? `<div class="lic-ok"><b>Licenza completa attiva su questa casa</b><div style="margin-top:6px;font-size:14px">Codice ${esc(l.codice)} · valida fino al ${esc(l.scadenza || "—")}</div>
-        <div style="margin-top:6px;font-size:14px">Da fuori casa: ${l.indirizzo ? `<a href="${esc(l.indirizzo)}" target="_blank" rel="noopener">${esc(l.indirizzo)}</a>` : "—"} · <span class="${S.tunnel === "attivo" ? "" : "dim"}">${{ attivo: "collegato", avvio: "in collegamento…", spento: "non collegato", mancante: "componente mancante" }[S.tunnel] || S.tunnel}</span></div></div>
-        <p class="dim" style="font-size:13px">Per entrare da fuori apri l'indirizzo e accedi con il tuo utente di Home Assistant.</p>
+        <div style="margin-top:6px;font-size:14px">Accesso da fuori casa: <span class="${S.tunnel === "attivo" ? "" : "dim"}">${{ attivo: "collegato", avvio: "in collegamento…", spento: "non collegato", mancante: "componente mancante" }[S.tunnel] || S.tunnel}</span></div></div>
         <div class="riga"><button class="btn pic" data-verifica-lic>Controlla ora</button><a class="btn pic" href="https://licenze.nexaliahome.com/acquista" target="_blank" rel="noopener">Rinnova</a><span class="spazio"></span><button class="btn pic r" data-disattiva-lic>Disattiva su questa casa</button></div>`
       : `<table><tr><th></th><th>Gratuita</th><th>Completa</th></tr>${righe.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("")}</table>
         <p style="margin:14px 0 6px"><b>Versione completa · 39 € all'anno</b> per una casa</p>
         <a class="btn a" href="https://licenze.nexaliahome.com/acquista" target="_blank" rel="noopener" style="width:100%">Acquista con PayPal</a>
         <form id="formLic" class="riga" style="margin-top:14px"><label class="campo" style="flex:1">Ho già un codice<input type="text" id="codiceLic" placeholder="NXL-XXXX-XXXX" maxlength="13" autocomplete="off" style="text-transform:uppercase"></label><button class="btn p" style="align-self:flex-end">Attiva</button></form>
         <p class="dim" style="font-size:13px">Il codice arriva per email dopo l'acquisto e vale per una casa. Per pagare con bonifico scrivi a info@nexaliahome.com.</p>`}
+    </section>
+    <section class="card" id="fuoriCasa"><div class="tit"><h2>Collega un dispositivo da fuori casa</h2>${ico("lucchetto")}</div>
+      ${completa() && l.indirizzo ? `
+      <p class="mut" style="margin-top:-6px">L'indirizzo della tua casa è privato: compare solo qui. Non condividerlo con chi non deve entrare.</p>
+      <div class="riga" style="margin:10px 0"><code class="indir" id="indirizzo">${esc(mostraIndirizzo ? l.indirizzo : mascherato(l.indirizzo))}</code></div>
+      <div class="riga"><button class="btn pic" data-mostra-ind>${mostraIndirizzo ? "Nascondi" : "Mostra"}</button><button class="btn pic" data-copia-ind>Copia</button><button class="btn pic p" data-qr>${qrVisibile ? "Nascondi QR" : "Mostra QR code"}</button></div>
+      <div id="qr" class="qr" ${qrVisibile ? "" : "hidden"}></div>
+      <ol class="passi">
+        <li>Sul telefono installa l'app <b>Home Assistant</b> (App Store o Google Play).</li>
+        <li>Inquadra il QR code con la fotocamera, oppure apri l'indirizzo nel browser.</li>
+        <li>Accedi con il tuo utente di Home Assistant.</li>
+        <li>Nell'app: <b>Impostazioni › App complementare › Server › URL esterno</b>, incolla l'indirizzo. Da quel momento funziona sia in casa sia fuori.</li>
+      </ol>` : `<p class="mut">Con la licenza completa ottieni un indirizzo privato per entrare da fuori casa con il telefono, senza VPN. Qui troverai il collegamento e il QR code da inquadrare.</p>`}
     </section>
     <section class="card"><h2>Agente</h2>
       <label class="campo">Dove mandare gli avvisi<span>Scegli l'app sul telefono (notify.mobile_app_…)</span><select id="impNotifica"><option value="">Solo notifiche di Home Assistant</option>${notif.map((n) => `<option value="notify.${n}" ${a.notifica === "notify." + n ? "selected" : ""}>notify.${esc(n)}</option>`).join("")}</select></label>
@@ -609,6 +640,18 @@ function vImpostazioni() {
     </section>
   </div>`;
 }
+let mostraIndirizzo = false, qrVisibile = false;
+const mascherato = (u) => { try { const h = new URL(u).hostname.split("."); return "https://" + h[0].slice(0, 5) + "••••." + h.slice(1).join("."); } catch (e) { return "••••"; } };
+function disegnaQR() {
+  const box = document.getElementById("qr"); if (!box || !qrVisibile) return;
+  const testo = S.cfg.licenza.indirizzo;
+  const fai = () => { box.innerHTML = ""; try { new QRCode(box, { text: testo, width: 200, height: 200, colorDark: "#0B0F14", colorLight: "#ffffff" }); } catch (e) { box.textContent = "QR code non disponibile: usa Copia."; } };
+  if (window.QRCode) return fai();
+  const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+  sc.onload = fai; sc.onerror = () => { box.textContent = "QR code non disponibile senza internet: usa Copia."; };
+  document.head.appendChild(sc);
+}
+
 function scegliDifferibili() {
   const ids = Object.keys(S.stati).filter((id) => ["switch", "input_boolean"].includes(dom(id)) && !accessorio(id)).sort((a, b) => nomeE(a).localeCompare(nomeE(b)));
   const sel = S.cfg.energia.differibili || [];
@@ -682,6 +725,9 @@ document.addEventListener("click", async (ev) => {
   if (d.salvaDiff !== undefined) { const sc = [...document.querySelectorAll("#listaDiff input:checked")].map((i) => i.value); await salvaCfg({ energia: { ...S.cfg.energia, differibili: sc } }); return chiudiFinestra(); }
   if (d.aggiorna) { try { window.top.location.href = d.aggiorna; } catch (e) { window.open(d.aggiorna, "_blank"); } return; }
   if (d.cercaAgg !== undefined) { try { const r = await api("api/aggiornamenti", { metodo: "POST" }); S.aggiornamento = r.aggiornamento; avviso(r.aggiornamento ? "Nuova versione " + r.aggiornamento.versione + " disponibile" : "Hai già l'ultima versione", "ok"); disegna(); } catch (e) { avviso(e.message, "err"); } return; }
+  if (d.mostraInd !== undefined) { mostraIndirizzo = !mostraIndirizzo; return disegna(); }
+  if (d.qr !== undefined) { qrVisibile = !qrVisibile; return disegna(); }
+  if (d.copiaInd !== undefined) { const u = S.cfg.licenza.indirizzo; try { await navigator.clipboard.writeText(u); avviso("Indirizzo copiato", "ok"); } catch (e) { mostraIndirizzo = true; disegna(); avviso("Copia non riuscita: selezionalo e copialo a mano", "err"); } return; }
   if (d.verificaLic !== undefined) { try { const r = await api("api/licenza/verifica", { metodo: "POST" }); S.cfg = r.config; S.tunnel = r.tunnel; avviso("Licenza controllata", "ok"); disegna(); } catch (e) { avviso(e.message, "err"); } return; }
   if (d.disattivaLic !== undefined) { if (!confirm("Disattivare la licenza su questa casa? Nexalia torna alla versione gratuita qui e il codice si libera per un altro mini PC.")) return; try { await api("api/licenza/disattiva", { metodo: "POST" }); avviso("Licenza disattivata", "ok"); await carica(); } catch (e) { avviso(e.message, "err"); } return; }
 });

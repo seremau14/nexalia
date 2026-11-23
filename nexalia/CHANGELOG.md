@@ -1,5 +1,14 @@
 # Novità
 
+## 1.0.5
+- Luci: solo le luci vere. Il faretto delle telecamere e lo schermo di Echo Show e smart display non compaiono più tra le luci.
+- Prese: solo le prese. Gli altri interruttori sono in "Altri interruttori"; quelli di telecamere ed Echo (privacy, microfono, sveglie, modalità notte…) sono raggruppati sotto Telecamere o Multimedia.
+- Il copriobiettivo dell'Echo Show non viene più scambiato per una finestra aperta.
+- Allarme non disponibile: niente più pulsanti, solo un avviso.
+- Telecamere non disponibili: segnaposto al posto dell'immagine rotta.
+- Nomi più puliti: "Scaldino Socket 1" diventa "Scaldino".
+- Nuova scheda "Collega un dispositivo da fuori casa" in Impostazioni, con indirizzo nascosto (Mostra/Copia), QR code e istruzioni. Per privacy l'indirizzo non compare più nella schermata principale.
+
 ## 1.0.4
 - Echo Show, Echo e altri smart speaker/display non vengono più contati come luci o prese: schermo, "non disturbare" e simili finiscono sotto Multimedia e sono esclusi da "Tutte le luci", dai conteggi dell'agente e dalla Casa 3D.
 

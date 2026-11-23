@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.0.4";
+const VERSIONE = "1.0.5";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -216,7 +216,7 @@ function agenteCambio(id, vecchio, nuovo) {
   } else if (d === "binary_sensor" && PERICOLI[c] && s === "on") {
     const v = annota({ tipo: "avviso", icona: "allerta", titolo: "Rilevato " + PERICOLI[c] + (stanza ? " in " + stanza.toLowerCase() : ""), testo: nome(id), stanza });
     notifica("Nexalia – attenzione", v.titolo);
-  } else if (d === "binary_sensor" && APERTURE.includes(c) && s === "on") {
+  } else if (d === "binary_sensor" && APERTURE.includes(c) && s === "on" && !accessorio(id)) {
     const allarme = Object.values(ha.stati).find((x) => x.entity_id.startsWith("alarm_control_panel.") && x.state.startsWith("armed"));
     if (allarme) {
       const v = annota({ tipo: "avviso", icona: "sicurezza", titolo: nome(id) + " aperta con l'allarme inserito", stanza });
@@ -228,7 +228,7 @@ function agenteCambio(id, vecchio, nuovo) {
     const t = { armed_away: "Allarme inserito (totale)", armed_home: "Allarme inserito (in casa)", armed_night: "Allarme inserito (notte)", disarmed: "Allarme disinserito", triggered: "ALLARME SCATTATO" }[s];
     if (t) { const v = annota({ tipo: s === "triggered" ? "avviso" : "info", icona: "sicurezza", titolo: t }); if (s === "triggered") notifica("Nexalia – allarme", v.titolo + ": " + nome(id)); }
   } else if (d === "weather" && config.agente.avvisa_finestre_pioggia && ["rainy", "pouring", "lightning-rainy"].includes(s)) {
-    const aperte = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("binary_sensor.") && x.attributes.device_class === "window" && x.state === "on");
+    const aperte = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("binary_sensor.") && x.attributes.device_class === "window" && x.state === "on" && !accessorio(x.entity_id));
     if (aperte.length) { const v = annota({ tipo: "avviso", icona: "goccia", titolo: "Inizia a piovere: " + aperte.length + (aperte.length === 1 ? " finestra aperta" : " finestre aperte"), testo: aperte.map((x) => x.attributes.friendly_name).join(", ") }); notifica("Nexalia", v.titolo); }
   }
   if (config.energia.casa && id === config.energia.casa) controllaConsumi();
@@ -243,7 +243,7 @@ function accessorio(id) {
   if (!e || !e.dispositivo) return false;
   const d = ha.dispositivi.find((x) => x.id === e.dispositivo) || {};
   if (/amazon|echo|alexa|google home|nest (hub|mini|audio)|sonos|homepod/i.test([d.produttore, d.modello, d.nome].join(" "))) return true;
-  return ha.entita.some((x) => x.dispositivo === e.dispositivo && /^(media_player|assist_satellite)\./.test(x.id));
+  return ha.entita.some((x) => x.dispositivo === e.dispositivo && /^(media_player|assist_satellite|camera)\./.test(x.id));
 }
 
 async function uscitiTutti() {
@@ -323,7 +323,7 @@ async function attivaLicenza(codice) {
   if (!d.ok) return { ok: false, errore: d.errore || "Attivazione non riuscita" };
   Object.assign(config.licenza, { codice, stato: "attiva", scadenza: d.scadenza, indirizzo: d.indirizzo, tunnel_token: d.tunnel_token, ultimo_ok: Date.now(), messaggio: "" });
   salva(); avviaTunnel();
-  annota({ tipo: "fatto", icona: "sicurezza", titolo: "Licenza completa attivata", testo: "Accesso da fuori casa: " + d.indirizzo });
+  annota({ tipo: "fatto", icona: "sicurezza", titolo: "Licenza completa attivata", testo: "L'accesso da fuori casa è pronto: trovi il collegamento in Impostazioni." });
   return { ok: true };
 }
 
