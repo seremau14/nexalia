@@ -1,5 +1,8 @@
 # Novità
 
+## 1.2.2
+- Sul telefono i popup (luci, prese, widget) non escono più dallo schermo.
+
 ## 1.2.1
 - Modo chiosco: la plancia occupa davvero tutto lo schermo anche con Home Assistant 2026 (prima restava una striscia vuota a sinistra).
 
