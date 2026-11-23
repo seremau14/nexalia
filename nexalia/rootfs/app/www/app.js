@@ -55,7 +55,12 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const dom = (id) => id.split(".")[0];
 const st = (id) => S.stati[id];
+const pers = (id) => (S.cfg && S.cfg.personalizza && S.cfg.personalizza[id]) || {};
 function nomeE(id) {
+  if (pers(id).nome) return pers(id).nome;
+  return nomeOriginale(id);
+}
+function nomeOriginale(id) {
   const s = st(id); const n = (s && s.attributes.friendly_name) || id;
   const m = n.match(/^(.+?)\s+(socket|switch|presa|interruttore|relay|outlet|channel|canale|plug|l)\s*\d*$/i);
   return m ? m[1].trim() : n;
@@ -73,6 +78,10 @@ async function api(percorso, opz = {}) {
   const d = await r.json().catch(() => ({}));
   if (!r.ok || d.ok === false) throw new Error(d.errore || "Errore " + r.status);
   return d;
+}
+function parla(t) {
+  if (!S.cfg.assist || !S.cfg.assist.voce || !window.speechSynthesis || !t) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = "it-IT"; const v = speechSynthesis.getVoices().filter((x) => x.lang && x.lang.startsWith("it")); const b = v.find((x) => /natural|neural|premium|enhanced|google/i.test(x.name)) || v[0]; if (b) u.voice = b; speechSynthesis.speak(u); } catch (e) {}
 }
 function avviso(testo, tipo = "") {
   const el = document.createElement("div"); el.className = "avviso " + tipo; el.textContent = testo;
@@ -116,11 +125,13 @@ function calcolaAccessori() {
   for (const id of Object.keys(S.stati)) if (!out.has(id) && /^(light|switch)\./.test(id) && /\b(echo|alexa)\b|non disturbare|do not disturb|riproduzione casuale|shuffle|repeat|ripeti/i.test(nomeE(id) + " " + id)) out.set(id, "Multimedia");
   ACCESSORI = out;
 }
-const accessorio = (id) => { if (!ACCESSORI) calcolaAccessori(); return ACCESSORI.has(id); };
-const gruppoAccessorio = (id) => { if (!ACCESSORI) calcolaAccessori(); return ACCESSORI.get(id); };
-const eLuce = (id) => dom(id) === "light" && !accessorio(id);
+const forzato = (id) => pers(id).gruppo || "";
+const accessorio = (id) => { const f = forzato(id); if (f) return ["multimedia", "telecamere"].includes(f); if (!ACCESSORI) calcolaAccessori(); return ACCESSORI.has(id); };
+const gruppoAccessorio = (id) => { const f = forzato(id); if (f) return { multimedia: "Multimedia", telecamere: "Telecamere" }[f]; if (!ACCESSORI) calcolaAccessori(); return ACCESSORI.get(id); };
+const eLuce = (id) => { const f = forzato(id); if (f) return f === "luci" && ["light", "switch", "input_boolean"].includes(dom(id)); return dom(id) === "light" && !accessorio(id); };
 // presa = interruttore che alimenta qualcosa: classe "outlet" o dispositivo/nome da presa smart
 function ePresa(id) {
+  const f = forzato(id); if (f) return f === "prese" && ["switch", "input_boolean"].includes(dom(id));
   if (dom(id) !== "switch" || accessorio(id)) return false;
   if (attr(id, "device_class") === "outlet") return true;
   const e = S.entita.find((x) => x.id === id), d = e && e.dispositivo && S.dispositivi.find((x) => x.id === e.dispositivo);
@@ -146,6 +157,7 @@ function tempStanza(s) {
   return c ? attr(c, "current_temperature") : null;
 }
 function iconaE(id) {
+  if (pers(id).icona) return pers(id).icona;
   const d = dom(id), c = attr(id, "device_class");
   const ga = gruppoAccessorio(id); if (ga) return ga === "Telecamere" ? "telecamere" : "media";
   return ({ light: "luci", switch: c === "outlet" ? "presa" : "presa", fan: "ventola", cover: "tapparelle", climate: "clima", lock: "lucchetto", media_player: "media", camera: "telecamere", vacuum: "robot", alarm_control_panel: "sicurezza", scene: "scenari", script: "scenari", water_heater: "goccia", valve: "goccia", humidifier: "goccia" })[d]
@@ -205,7 +217,7 @@ const ORDINE = ["light", "switch", "fan", "cover", "climate", "media_player", "l
 const GRUPPI = { light: "Luci", switch: "Interruttori", input_boolean: "Interruttori", fan: "Ventilazione", cover: "Tapparelle e tende", climate: "Clima", media_player: "Multimedia", lock: "Serrature", vacuum: "Robot", camera: "Telecamere", humidifier: "Clima", water_heater: "Acqua calda", valve: "Valvole", scene: "Scene", script: "Scene", button: "Pulsanti", binary_sensor: "Sensori", sensor: "Misure", alarm_control_panel: "Allarme" };
 function tesserePerGruppo(ids) {
   const g = {};
-  for (const id of ids) { const k = gruppoAccessorio(id) || (ePresa(id) ? "Prese" : GRUPPI[dom(id)]) || "Altro"; (g[k] = g[k] || []).push(id); }
+  for (const id of ids) { const f = forzato(id); const k = f ? { luci: "Luci", prese: "Prese", interruttori: "Interruttori", multimedia: "Multimedia", telecamere: "Telecamere", sensori: "Sensori" }[f] : gruppoAccessorio(id) || (ePresa(id) ? "Prese" : GRUPPI[dom(id)]) || "Altro"; (g[k] = g[k] || []).push(id); }
   const pos = (k) => { const o = ["Luci", "Prese", "Interruttori", "Tapparelle e tende", "Clima", "Ventilazione", "Multimedia", "Telecamere", "Serrature", "Robot", "Scene", "Pulsanti", "Sensori", "Misure", "Allarme"].indexOf(k); return o < 0 ? 99 : o; };
   const ord = Object.keys(g).sort((a, b) => pos(a) - pos(b));
   return ord.map((k) => `<div class="gruppo">${k}</div><div class="tessere">${g[k].map(tessera).join("")}</div>`).join("");
@@ -226,9 +238,19 @@ const SCHEDE = [
 ];
 function schedeAttive() {
   const sez = S.cfg.sezioni || [];
-  return SCHEDE.filter((s) => s.id === "impostazioni" || s.id === "agente" || (sez.includes(s.id) && (!s.completa || completa())));
+  const ord = ["agente", ...ordineSezioni(), "impostazioni"];
+  return ord.map((id) => SCHEDE.find((x) => x.id === id)).filter((s) => s.id === "impostazioni" || s.id === "agente" || (sez.includes(s.id) && (!s.completa || completa())));
+}
+function applicaAspetto() {
+  const a = (S.cfg && S.cfg.aspetto) || {};
+  const m = document.querySelector(".marchio");
+  if (m) m.innerHTML = `${ico("casa")}<span>${esc(a.nome || "Casa")}</span><b>·</b><em>${esc(a.sottotitolo || "Nexalia")}</em>`;
+  const chiaro = a.tema === "chiaro" || (a.tema === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches);
+  document.body.classList.toggle("chiaro", !!chiaro);
+  document.documentElement.style.setProperty("--blu", a.accento || "#5AB0FF");
 }
 function disegnaSchede() {
+  applicaAspetto();
   const att = schedeAttive();
   if (!att.find((s) => s.id === S.scheda)) S.scheda = "agente";
   $("#schede").innerHTML = att.map((s) => `<button role="tab" aria-selected="${s.id === S.scheda}" class="${s.id === S.scheda ? "on" : ""}" data-scheda="${s.id}">${ico(s.ic)}${s.nome}</button>`).join("");
@@ -300,8 +322,8 @@ function vAgente() {
       <div class="frase">“${esc(frase)}”</div>
       ${ultima && ultima.testo ? `<div class="mut" style="max-width:560px">${esc(ultima.testo)}</div>` : ""}
       ${rispostaAssist ? `<div class="risposta"><b class="etichetta" style="display:block;margin-bottom:4px">Nexalia</b>${esc(rispostaAssist)}</div>` : ""}
-      <form class="chat" id="formAssist"><input id="assist" type="text" placeholder="Chiedi a Nexalia: “accendi le luci in cucina”" autocomplete="off" aria-label="Chiedi a Nexalia"><button class="btn p" aria-label="Invia">${ico("invio")}</button></form>
-      <div class="dim" style="font-size:12px">Le richieste passano dall'assistente di Home Assistant (Assist), anche con un modello AI se lo hai configurato.</div>
+      ${S.cfg.assist && S.cfg.assist.nascondi ? "" : `<form class="chat" id="formAssist"><input id="assist" type="text" placeholder="Chiedi a Nexalia: “accendi le luci in cucina”" autocomplete="off" aria-label="Chiedi a Nexalia"><button class="btn p" aria-label="Invia">${ico("invio")}</button></form>
+      <div class="dim" style="font-size:12px">Le richieste passano dall'assistente di Home Assistant (Assist), anche con un modello AI se lo hai configurato.</div>`}
     </section>
     ${conDiario ? `<section class="card"><div class="tit"><h2>Cosa è successo</h2>${S.diario.length ? '<button class="btn pic" data-azz-diario>Svuota</button>' : ""}</div>
       <div class="diario">${S.diario.slice(0, 40).map((v) => `<div class="voce ${v.tipo}"><div class="ico">${ico(ICONE_DIARIO[v.icona] || "agente", "s")}</div><div><small>${ora(v.t)}${v.stanza ? " · " + esc(v.stanza) : ""}</small><b>${esc(v.titolo)}</b>${v.testo ? `<p>${esc(v.testo)}</p>` : ""}</div></div>`).join("") || '<div class="vuoto">Qui Nexalia annota quello che succede e quello che fa per te.</div>'}</div>
@@ -352,7 +374,7 @@ function vComandi() {
   const luci = Object.keys(S.stati).filter((id) => eLuce(id) && visibile(id));
   const tap = Object.keys(S.stati).filter((id) => dom(id) === "cover" && visibile(id));
   const prese = Object.keys(S.stati).filter((id) => ePresa(id) && visibile(id));
-  const altri = Object.keys(S.stati).filter((id) => ((dom(id) === "switch" && !ePresa(id)) || ["input_boolean", "fan"].includes(dom(id))) && !accessorio(id) && visibile(id));
+  const altri = Object.keys(S.stati).filter((id) => ((dom(id) === "switch" && !ePresa(id)) || ["input_boolean", "fan"].includes(dom(id))) && !eLuce(id) && !ePresa(id) && !accessorio(id) && forzato(id) !== "sensori" && visibile(id));
   const acc = luci.filter((id) => st(id).state === "on").length, aperte = tap.filter((id) => st(id).state !== "closed").length;
   return `<section class="card"><div class="riga">
       <div class="riga" style="gap:12px">${ico("luci")}<div><b>Tutte le luci</b><div class="dim" style="font-size:13px">${acc} accese su ${luci.length}</div></div><button class="btn a pic" data-gruppo="light" data-v="turn_on">Accendi tutte</button><button class="btn pic" data-gruppo="light" data-v="turn_off">Spegni tutte</button></div>
@@ -602,14 +624,77 @@ function opzioniSensori(filtro, val) {
   const ids = Object.keys(S.stati).filter((id) => dom(id) === "sensor" && filtro(id)).sort((a, b) => nomeE(a).localeCompare(nomeE(b)));
   return `<option value="">— nessuno —</option>` + ids.map((id) => `<option value="${id}" ${id === val ? "selected" : ""}>${esc(nomeE(id))} (${esc(testoStato(id))})</option>`).join("");
 }
-function vImpostazioni() {
-  const l = S.cfg.licenza, e = S.cfg.energia, a = S.cfg.agente;
+let pannello = localStorage.getItem("nx_pannello") || "generali", cercaEd = "", catEd = "tutte", entSel = null, cercaEnt = "", entIcona = null;
+const CAT_ED = { plancia: "Plancia", dispositivi: "Dispositivi", energia: "Energia", agente: "Agente", licenza: "Licenza", tutte: "Tutte" };
+const TEMI_ACC = ["#5AB0FF", "#4CC38A", "#FFB454", "#B48CFF", "#FF8A80", "#5EE1D6"];
+const GRUPPI_FORZATI = { "": "Automatico", luci: "Luce", prese: "Presa", interruttori: "Interruttore", multimedia: "Multimedia (non è luce né presa)", telecamere: "Accessorio di telecamera", sensori: "Sensore" };
+function pannelli() {
+  const l = S.cfg.licenza, e = S.cfg.energia, a = S.cfg.agente, as = S.cfg.aspetto || {}, ass = S.cfg.assist || {};
   const pot = (id) => attr(id, "device_class") === "power";
   const notif = (S.servizi && S.servizi.notify) || [];
-  const righe = [["Sezioni", "8", "Tutte"], ["Agente, stanze, scenari", "Sì", "Sì"], ["Casa 3D", "No", "Sì"], ["Accesso da fuori casa", "No", "Sì"], ["Backup e ripristino", "No", "Sì"]];
+  const righe = [["Sezioni", "Tutte tranne Casa 3D", "Tutte"], ["Agente, stanze, scenari", "Sì", "Sì"], ["Casa 3D", "No", "Sì"], ["Accesso da fuori casa", "No", "Sì"], ["Backup e ripristino", "No", "Sì"]];
   const sez = S.cfg.sezioni || [];
-  return `<div class="impost">
-    <section class="card"><div class="tit"><h2>Licenza</h2><span class="badge ${completa() ? "casa" : "blu"}">${completa() ? "Completa" : l.stato === "scaduta" ? "Scaduta" : "Gratuita"}</span></div>
+  const agenti = Object.keys(S.stati).filter((id) => dom(id) === "conversation");
+  const pers = S.cfg.personalizza || {};
+  const P = {};
+  P.generali = { cat: "plancia", ic: "impostazioni", tit: "Generali", kw: "nome casa sottotitolo intestazione", html: () => `
+    <p class="mut">Il nome e la riga sotto compaiono in alto a sinistra nella plancia.</p>
+    <label class="campo">Nome della plancia<input type="text" id="edNome" maxlength="30" value="${esc(as.nome || "Casa")}"></label>
+    <label class="campo" style="margin-top:10px">Sottotitolo<span>Facoltativo, es. "Casa Sinisi"</span><input type="text" id="edSotto" maxlength="40" value="${esc(as.sottotitolo || "")}"></label>
+    <div class="riga" style="margin-top:12px"><button class="btn p" data-salva-generali>Salva</button></div>` };
+  P.tema = { cat: "plancia", ic: "occhio", tit: "Tema e colori", kw: "tema chiaro scuro colore accento aspetto", html: () => `
+    <div class="gruppo" style="margin-top:0">Aspetto</div>
+    <div class="scelte">${[["scuro", "Scuro"], ["chiaro", "Chiaro"], ["auto", "Automatico"]].map(([k, n]) => `<button class="${(as.tema || "scuro") === k ? "on" : ""}" data-tema="${k}">${n}</button>`).join("")}</div>
+    <div class="gruppo">Colore principale</div>
+    <div class="riga">${TEMI_ACC.map((c) => `<button class="colore ${(as.accento || TEMI_ACC[0]) === c ? "on" : ""}" style="background:${c}" data-accento="${c}" aria-label="Colore ${c}"></button>`).join("")}</div>` };
+  P.home = { cat: "plancia", ic: "casa", tit: "Schermata principale", kw: "home riquadri widget preferiti ordine", html: () => `<p class="mut" style="margin-top:-6px">Scegli cosa vedere nella home e in che ordine. Il cerchio dell'agente c'è sempre.</p>
+      ${ordineHome().map((k, i, a) => `<div class="voce-imp"><div><b>${RIQUADRI[k]}</b></div><button class="btn pic" data-su="${k}" ${i === 0 ? "disabled" : ""} aria-label="Sposta su">${ico("su", "s")}</button><button class="btn pic" data-giu="${k}" ${i === a.length - 1 ? "disabled" : ""} aria-label="Sposta giù">${ico("giu", "s")}</button><button class="tg ${S.cfg.home.riquadri.includes(k) ? "on" : ""}" data-riq="${k}" aria-label="Mostra ${RIQUADRI[k]}"></button></div>`).join("")}` };
+  P.sezioni = { cat: "plancia", ic: "comandi", tit: "Sezioni", kw: "schede menu barra ordine", html: () => `<p class="mut">Accendi le sezioni che vuoi nella barra in alto e scegli l'ordine. Agente e Impostazioni ci sono sempre.</p>
+    ${ordineSezioni().map((id, i, arr) => { const sc = SCHEDE.find((x) => x.id === id); return `<div class="voce-imp">${ico(sc.ic)}<div><b>${sc.nome}</b>${sc.completa && !completa() ? "<small>Con la licenza completa</small>" : ""}</div><button class="btn pic" data-sez-su="${id}" ${i === 0 ? "disabled" : ""} aria-label="Sposta su">${ico("su", "s")}</button><button class="btn pic" data-sez-giu="${id}" ${i === arr.length - 1 ? "disabled" : ""} aria-label="Sposta giù">${ico("giu", "s")}</button><button class="tg ${sez.includes(id) && (!sc.completa || completa()) ? "on" : ""}" data-sezione="${id}" ${sc.completa && !completa() ? "disabled" : ""} aria-label="Mostra ${sc.nome}"></button></div>`; }).join("")}` };
+  P.backup = { cat: "plancia", ic: "freccia", tit: "Backup e informazioni", kw: "backup ripristino versione aggiornamenti assistenza", html: () => `
+      <p class="mut">Salva stanze, Casa 3D, scenari, impostazioni e raccolta in un file. Per passare a un altro mini PC: installa Nexalia e carica il backup.</p>
+      ${completa() ? `<div class="riga"><a class="btn" href="api/backup" download>Scarica il backup</a><label class="btn">Ripristina da file<input type="file" id="fileBackup" accept="application/json" hidden></label></div>` : `<div class="dim">Incluso nella licenza completa.</div>`}
+      <div class="gruppo">Informazioni</div>
+      <div class="riga" style="margin-bottom:8px"><button class="btn pic" data-cerca-agg>Cerca aggiornamenti</button></div><div class="mut" style="font-size:14px">Nexalia ${esc(S.versione)} · Home Assistant ${esc((S.haConfig && S.haConfig.versione) || "")} · ${S.collegato ? "collegato" : "non collegato"}<br>${Object.keys(S.stati).length} entità · ${S.aree.length} aree<br>Assistenza: <a href="mailto:info@nexaliahome.com">info@nexaliahome.com</a> · <a href="https://nexaliahome.com" target="_blank" rel="noopener">nexaliahome.com</a></div>` };
+  P.stanze = { cat: "dispositivi", ic: "stanze", tit: "Stanze", kw: "stanze aree stanza", html: () => `<p class="mut">Crea, rinomina ed elimina le stanze e scegli quali dispositivi ci sono in ognuna.</p><button class="btn p" data-gestisci-stanze>${ico("matita", "s")}Gestisci le stanze</button>` };
+  P.entita = { cat: "dispositivi", ic: "stella", tit: "Le tue entità", kw: "entità rinomina nome icona gruppo luce presa", html: () => {
+    const tutte = Object.keys(S.stati).filter((id) => DOMINI_UTILI.includes(dom(id))).sort((x, y) => nomeE(x).localeCompare(nomeE(y)));
+    const q = cercaEnt.toLowerCase();
+    const lista = q ? tutte.filter((id) => (nomeE(id) + " " + id).toLowerCase().includes(q)).slice(0, 60) : [];
+    const mod = Object.keys(pers).filter((id) => st(id));
+    const sel = entSel && st(entSel) ? entSel : null, ps = sel ? pers[sel] || {} : {};
+    const icSel = entIcona !== null ? entIcona : ps.icona || "";
+    return `<p class="mut">Rinomina un dispositivo, cambiagli l'icona o di' a Nexalia cos'è davvero (es. una presa che accende una lampada diventa "Luce"). Vale solo nella plancia: in Home Assistant non cambia niente.</p>
+    ${sel ? `<div class="ed-box"><div class="tit"><b>${esc(nomeE(sel))}</b><small class="dim">${esc(sel)}</small></div>
+      <label class="campo">Nome nella plancia<input type="text" id="entNome" maxlength="40" value="${esc(ps.nome || "")}" placeholder="${esc(nomeOriginale(sel))}"></label>
+      <label class="campo" style="margin-top:10px">È un…<select id="entGruppo">${Object.entries(GRUPPI_FORZATI).map(([k, n]) => `<option value="${k}" ${(ps.gruppo || "") === k ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <div class="gruppo">Icona</div><div class="icone-sel"><button class="${!icSel ? "on" : ""}" data-ent-icona="" aria-label="Automatica">Auto</button>${["luci", "presa", "tapparelle", "clima", "ventola", "media", "telecamere", "porte", "finestra", "energia", "goccia", "robot", "lucchetto", "sensore", "casa", "stella"].map((k) => `<button class="${icSel === k ? "on" : ""}" data-ent-icona="${k}" aria-label="Icona ${k}">${ico(k)}</button>`).join("")}</div>
+      <div class="riga" style="margin-top:14px"><button class="btn p" data-salva-ent>Salva</button><button class="btn" data-annulla-ent>Annulla</button><span class="spazio"></span>${pers[sel] ? `<button class="btn r pic" data-reset-ent="${sel}">Ripristina originale</button>` : ""}</div></div>` : ""}
+    <label class="campo" style="margin-top:12px">Cerca un dispositivo da modificare<input type="text" id="cercaEnt" value="${esc(cercaEnt)}" placeholder="Es. presa, luce, echo" autocomplete="off"></label>
+    <div id="risEnt">${lista.length ? `<div class="lista-sel">${lista.map((id) => `<label data-ent="${id}">${ico(iconaE(id), "s")}<span>${esc(nomeE(id))}</span><small>${esc(id)}</small></label>`).join("")}</div>` : q ? '<p class="dim">Nessun dispositivo trovato.</p>' : ""}</div>
+    ${mod.length ? `<div class="gruppo">Modificati</div>${mod.map((id) => `<div class="voce-imp">${ico(iconaE(id))}<div><b>${esc(nomeE(id))}</b><small>${esc(id)}${pers[id].gruppo ? " · " + esc(GRUPPI_FORZATI[pers[id].gruppo]) : ""}</small></div><button class="btn pic" data-ent="${id}" aria-label="Modifica">${ico("matita", "s")}</button></div>`).join("")}` : ""}`; } };
+  P.nascosti = { cat: "dispositivi", ic: "nascondi", tit: "Dispositivi nascosti", kw: "nascondi nascosti mostra", html: () => `
+      ${(S.cfg.nascoste || []).length ? (S.cfg.nascoste || []).map((id) => `<div class="voce-imp">${ico(st(id) ? iconaE(id) : "sensore")}<div><b>${esc(st(id) ? nomeE(id) : id)}</b><small>${esc(id)}</small></div><button class="btn pic" data-mostra-disp="${id}">Mostra di nuovo</button></div>`).join("") : '<p class="mut">Nessun dispositivo nascosto. Per nasconderne uno tocca l\'icona con l\'occhio barrato sulla sua tessera.</p>'}` };
+  P.energia = { cat: "energia", ic: "energia", tit: "Energia", kw: "energia sensori fotovoltaico rete batteria contatore carichi", html: () => `
+      <div class="griglia">
+        <label class="campo">Consumo della casa<select data-energia="casa">${opzioniSensori(pot, e.casa)}</select></label>
+        <label class="campo">Fotovoltaico (produzione)<select data-energia="solare">${opzioniSensori(pot, e.solare)}</select></label>
+        <label class="campo">Rete<span>Positivo quando prelevi, negativo quando cedi</span><select data-energia="rete">${opzioniSensori(pot, e.rete)}</select></label>
+        <label class="campo">Batteria (potenza)<span>Positivo in scarica</span><select data-energia="batteria">${opzioniSensori(pot, e.batteria)}</select></label>
+        <label class="campo">Batteria (livello %)<select data-energia="batteria_livello">${opzioniSensori((id) => attr(id, "device_class") === "battery", e.batteria_livello)}</select></label>
+        <label class="campo">Potenza del contatore (kW)<input type="number" id="impContatore" min="1" max="30" step="0.5" value="${esc(e.contatore_kw)}"></label>
+        <div><b style="font-size:14px">Carichi da spegnere se superi il contatore</b><div class="dim" style="font-size:13px;margin-bottom:8px">Es. lavatrice, scaldabagno: Nexalia li spegne per primi</div><button class="btn pic" data-differibili>${(e.differibili || []).length ? (e.differibili || []).length + " scelti · modifica" : "Scegli"}</button></div>
+      </div>` };
+  P.agente = { cat: "agente", ic: "agente", tit: "Agente", kw: "agente avvisi notifiche telefono consumi pioggia luci uscita", html: () => `
+      <label class="campo">Dove mandare gli avvisi<span>Scegli l'app sul telefono (notify.mobile_app_…)</span><select id="impNotifica"><option value="">Solo notifiche di Home Assistant</option>${notif.map((n) => `<option value="notify.${n}" ${a.notifica === "notify." + n ? "selected" : ""}>notify.${esc(n)}</option>`).join("")}</select></label>
+      <div class="voce-imp" style="margin-top:8px"><div><b>Spegni le luci quando escono tutti</b><small>Altrimenti Nexalia te lo ricorda soltanto</small></div><button class="tg ${a.spegni_luci_uscita ? "on" : ""}" data-agente="spegni_luci_uscita" aria-label="Spegni le luci quando escono tutti"></button></div>
+      <div class="voce-imp"><div><b>Avvisa per consumi alti</b><small>Prima di superare la potenza del contatore</small></div><button class="tg ${a.avvisa_consumi ? "on" : ""}" data-agente="avvisa_consumi" aria-label="Avvisa per consumi alti"></button></div>
+      <div class="voce-imp"><div><b>Finestre aperte quando piove</b><small>Usa il meteo di Home Assistant</small></div><button class="tg ${a.avvisa_finestre_pioggia ? "on" : ""}" data-agente="avvisa_finestre_pioggia" aria-label="Finestre aperte quando piove"></button></div>` };
+  P.assist = { cat: "agente", ic: "invio", tit: "Assist e voce", kw: "assist chat assistente modello ai voce leggi risposta gemini", html: () => `<p class="mut">La casella "Chiedi a Nexalia" passa le richieste all'assistente di Home Assistant. Qui scegli quale usare e se la plancia deve leggere le risposte ad alta voce.</p>
+    <label class="campo">Assistente<span>Vuoto = quello predefinito di Home Assistant</span><select id="edAgente"><option value="">Predefinito di Home Assistant</option>${agenti.map((id) => `<option value="${id}" ${ass.agente === id ? "selected" : ""}>${esc(nomeE(id))}</option>`).join("")}</select></label>
+    <div class="voce-imp" style="margin-top:8px"><div><b>Leggi la risposta ad alta voce</b><small>Usa la voce del dispositivo su cui apri la plancia</small></div><button class="tg ${ass.voce ? "on" : ""}" data-assist="voce" aria-label="Leggi la risposta ad alta voce"></button></div>
+    <div class="voce-imp"><div><b>Mostra la casella nella home</b></div><button class="tg ${ass.nascondi ? "" : "on"}" data-assist="nascondi" aria-label="Mostra la casella nella home"></button></div>` };
+  P.licenza = { cat: "licenza", ic: "sicurezza", tit: "Licenza", kw: "licenza codice acquista paypal rinnova attiva disattiva", html: () => `<div class="tit"><span></span><span class="badge ${completa() ? "casa" : "blu"}">${completa() ? "Completa" : l.stato === "scaduta" ? "Scaduta" : "Gratuita"}</span></div>
       ${l.messaggio ? `<div class="lic-ko" style="margin-bottom:12px">${esc(l.messaggio)}</div>` : ""}
       ${completa() ? `<div class="lic-ok"><b>Licenza completa attiva su questa casa</b><div style="margin-top:6px;font-size:14px">Codice ${esc(l.codice)} · valida fino al ${esc(l.scadenza || "—")}</div>
         <div style="margin-top:6px;font-size:14px">Accesso da fuori casa: <span class="${S.tunnel === "attivo" ? "" : "dim"}">${{ attivo: "collegato", avvio: "in collegamento…", spento: "non collegato", mancante: "componente mancante" }[S.tunnel] || S.tunnel}</span></div></div>
@@ -618,9 +703,8 @@ function vImpostazioni() {
         <p style="margin:14px 0 6px"><b>Versione completa · 39 € all'anno</b> per una casa</p>
         <a class="btn a" href="https://licenze.nexaliahome.com/acquista" target="_blank" rel="noopener" style="width:100%">Acquista con PayPal</a>
         <form id="formLic" class="riga" style="margin-top:14px"><label class="campo" style="flex:1">Ho già un codice<input type="text" id="codiceLic" placeholder="NXL-XXXX-XXXX" maxlength="13" autocomplete="off" style="text-transform:uppercase"></label><button class="btn p" style="align-self:flex-end">Attiva</button></form>
-        <p class="dim" style="font-size:13px">Il codice arriva per email dopo l'acquisto e vale per una casa. Per pagare con bonifico scrivi a info@nexaliahome.com.</p>`}
-    </section>
-    <section class="card" id="fuoriCasa"><div class="tit"><h2>Collega un dispositivo da fuori casa</h2>${ico("lucchetto")}</div>
+        <p class="dim" style="font-size:13px">Il codice arriva per email dopo l'acquisto e vale per una casa. Per pagare con bonifico scrivi a info@nexaliahome.com.</p>`}` };
+  P.fuori = { cat: "licenza", ic: "lucchetto", tit: "Collega da fuori casa", kw: "fuori casa indirizzo qr telefono remoto collega dispositivo", html: () => `<div class="tit"><span></span>${ico("lucchetto")}</div>
       ${completa() && l.indirizzo ? `
       <p class="mut" style="margin-top:-6px">L'indirizzo della tua casa è privato: compare solo qui. Non condividerlo con chi non deve entrare.</p>
       <div class="riga" style="margin:10px 0"><code class="indir" id="indirizzo">${esc(mostraIndirizzo ? l.indirizzo : mascherato(l.indirizzo))}</code></div>
@@ -631,40 +715,28 @@ function vImpostazioni() {
         <li>Inquadra il QR code con la fotocamera, oppure apri l'indirizzo nel browser.</li>
         <li>Accedi con il tuo utente di Home Assistant.</li>
         <li>Nell'app: <b>Impostazioni › App complementare › Server › URL esterno</b>, incolla l'indirizzo. Da quel momento funziona sia in casa sia fuori.</li>
-      </ol>` : `<p class="mut">Con la licenza completa ottieni un indirizzo privato per entrare da fuori casa con il telefono, senza VPN. Qui troverai il collegamento e il QR code da inquadrare.</p>`}
-    </section>
-    <section class="card"><h2>Agente</h2>
-      <label class="campo">Dove mandare gli avvisi<span>Scegli l'app sul telefono (notify.mobile_app_…)</span><select id="impNotifica"><option value="">Solo notifiche di Home Assistant</option>${notif.map((n) => `<option value="notify.${n}" ${a.notifica === "notify." + n ? "selected" : ""}>notify.${esc(n)}</option>`).join("")}</select></label>
-      <div class="voce-imp" style="margin-top:8px"><div><b>Spegni le luci quando escono tutti</b><small>Altrimenti Nexalia te lo ricorda soltanto</small></div><button class="tg ${a.spegni_luci_uscita ? "on" : ""}" data-agente="spegni_luci_uscita" aria-label="Spegni le luci quando escono tutti"></button></div>
-      <div class="voce-imp"><div><b>Avvisa per consumi alti</b><small>Prima di superare la potenza del contatore</small></div><button class="tg ${a.avvisa_consumi ? "on" : ""}" data-agente="avvisa_consumi" aria-label="Avvisa per consumi alti"></button></div>
-      <div class="voce-imp"><div><b>Finestre aperte quando piove</b><small>Usa il meteo di Home Assistant</small></div><button class="tg ${a.avvisa_finestre_pioggia ? "on" : ""}" data-agente="avvisa_finestre_pioggia" aria-label="Finestre aperte quando piove"></button></div>
-    </section>
-    <section class="card"><h2>Energia</h2>
-      <div class="griglia">
-        <label class="campo">Consumo della casa<select data-energia="casa">${opzioniSensori(pot, e.casa)}</select></label>
-        <label class="campo">Fotovoltaico (produzione)<select data-energia="solare">${opzioniSensori(pot, e.solare)}</select></label>
-        <label class="campo">Rete<span>Positivo quando prelevi, negativo quando cedi</span><select data-energia="rete">${opzioniSensori(pot, e.rete)}</select></label>
-        <label class="campo">Batteria (potenza)<span>Positivo in scarica</span><select data-energia="batteria">${opzioniSensori(pot, e.batteria)}</select></label>
-        <label class="campo">Batteria (livello %)<select data-energia="batteria_livello">${opzioniSensori((id) => attr(id, "device_class") === "battery", e.batteria_livello)}</select></label>
-        <label class="campo">Potenza del contatore (kW)<input type="number" id="impContatore" min="1" max="30" step="0.5" value="${esc(e.contatore_kw)}"></label>
-        <div><b style="font-size:14px">Carichi da spegnere se superi il contatore</b><div class="dim" style="font-size:13px;margin-bottom:8px">Es. lavatrice, scaldabagno: Nexalia li spegne per primi</div><button class="btn pic" data-differibili>${(e.differibili || []).length ? (e.differibili || []).length + " scelti · modifica" : "Scegli"}</button></div>
-      </div>
-    </section>
-    <section class="card"><h2>Schermata principale</h2><p class="mut" style="margin-top:-6px">Scegli cosa vedere nella home e in che ordine. Il cerchio dell'agente c'è sempre.</p>
-      ${ordineHome().map((k, i, a) => `<div class="voce-imp"><div><b>${RIQUADRI[k]}</b></div><button class="btn pic" data-su="${k}" ${i === 0 ? "disabled" : ""} aria-label="Sposta su">${ico("su", "s")}</button><button class="btn pic" data-giu="${k}" ${i === a.length - 1 ? "disabled" : ""} aria-label="Sposta giù">${ico("giu", "s")}</button><button class="tg ${S.cfg.home.riquadri.includes(k) ? "on" : ""}" data-riq="${k}" aria-label="Mostra ${RIQUADRI[k]}"></button></div>`).join("")}
-    </section>
-    <section class="card"><h2>Dispositivi nascosti</h2>
-      ${(S.cfg.nascoste || []).length ? (S.cfg.nascoste || []).map((id) => `<div class="voce-imp">${ico(st(id) ? iconaE(id) : "sensore")}<div><b>${esc(st(id) ? nomeE(id) : id)}</b><small>${esc(id)}</small></div><button class="btn pic" data-mostra-disp="${id}">Mostra di nuovo</button></div>`).join("") : '<p class="mut">Nessun dispositivo nascosto. Per nasconderne uno tocca l\'icona con l\'occhio barrato sulla sua tessera.</p>'}
-    </section>
-    <section class="card"><h2>Sezioni</h2>
-      ${SCHEDE.filter((s) => !["agente", "impostazioni"].includes(s.id)).map((s) => `<div class="voce-imp">${ico(s.ic)}<div><b>${s.nome}</b>${s.completa && !completa() ? "<small>Con la licenza completa</small>" : ""}</div><button class="tg ${sez.includes(s.id) && (!s.completa || completa()) ? "on" : ""}" data-sezione="${s.id}" ${s.completa && !completa() ? "disabled" : ""} aria-label="Mostra ${s.nome}"></button></div>`).join("")}
-    </section>
-    <section class="card"><h2>Backup e ripristino</h2>
-      <p class="mut">Salva stanze, Casa 3D, scenari, impostazioni e raccolta in un file. Per passare a un altro mini PC: installa Nexalia e carica il backup.</p>
-      ${completa() ? `<div class="riga"><a class="btn" href="api/backup" download>Scarica il backup</a><label class="btn">Ripristina da file<input type="file" id="fileBackup" accept="application/json" hidden></label></div>` : `<div class="dim">Incluso nella licenza completa.</div>`}
-      <div class="gruppo">Informazioni</div>
-      <div class="riga" style="margin-bottom:8px"><button class="btn pic" data-cerca-agg>Cerca aggiornamenti</button></div><div class="mut" style="font-size:14px">Nexalia ${esc(S.versione)} · Home Assistant ${esc((S.haConfig && S.haConfig.versione) || "")} · ${S.collegato ? "collegato" : "non collegato"}<br>${Object.keys(S.stati).length} entità · ${S.aree.length} aree<br>Assistenza: <a href="mailto:info@nexaliahome.com">info@nexaliahome.com</a> · <a href="https://nexaliahome.com" target="_blank" rel="noopener">nexaliahome.com</a></div>
-    </section>
+      </ol>` : `<p class="mut">Con la licenza completa ottieni un indirizzo privato per entrare da fuori casa con il telefono, senza VPN. Qui troverai il collegamento e il QR code da inquadrare.</p>`}` };
+  return P;
+}
+function ordineSezioni() {
+  const altre = SCHEDE.filter((x) => !["agente", "impostazioni"].includes(x.id)).map((x) => x.id);
+  const base = (S.cfg.sezioni_ordine || []).filter((id) => altre.includes(id));
+  return [...base, ...altre.filter((id) => !base.includes(id))];
+}
+function vImpostazioni() {
+  const P = pannelli();
+  const q = cercaEd.toLowerCase().trim();
+  const ids = Object.keys(P).filter((k) => (catEd === "tutte" || P[k].cat === catEd) && (!q || (P[k].tit + " " + P[k].kw).toLowerCase().includes(q)));
+  if (!ids.includes(pannello)) pannello = ids[0] || "generali";
+  const cats = {}; for (const k of ids) (cats[P[k].cat] = cats[P[k].cat] || []).push(k);
+  const att = ids.length ? P[pannello] : null;
+  return `<div class="editor">
+    <div class="ed-top"><div class="ed-cerca">${ico("comandi")}<input type="text" id="cercaEd" value="${esc(cercaEd)}" placeholder="Cerca in tutte le impostazioni…" autocomplete="off" aria-label="Cerca nelle impostazioni"></div>
+      <div class="scelte">${Object.entries(CAT_ED).map(([k, n]) => `<button class="${catEd === k ? "on" : ""}" data-cat-ed="${k}">${n}</button>`).join("")}</div></div>
+    <div class="ed-corpo">
+      <nav class="ed-nav">${Object.entries(cats).map(([c, ks]) => `<div class="ed-cat">${CAT_ED[c]}</div>${ks.map((k) => `<button class="${k === pannello ? "on" : ""}" data-pannello="${k}">${ico(P[k].ic, "s")}${P[k].tit}</button>`).join("")}`).join("") || '<div class="dim" style="padding:12px">Nessun risultato</div>'}</nav>
+      <section class="card ed-pan">${att ? `<div class="ed-tit"><span class="etichetta">${CAT_ED[att.cat]}</span><h2>${att.tit}</h2></div>${att.html()}` : '<div class="vuoto">Nessuna impostazione corrisponde alla ricerca.</div>'}</section>
+    </div>
   </div>`;
 }
 let mostraIndirizzo = false, qrVisibile = false;
@@ -700,7 +772,7 @@ function scegliDifferibili() {
 // ------------------------------------------------------------------ eventi
 document.addEventListener("click", async (ev) => {
   if (ev.target.matches("input,select,textarea")) return;
-  const t = ev.target.closest("button,[data-az],[data-pin],a,label.btn");
+  const t = ev.target.closest("button,[data-az],[data-pin],[data-ent],a,label.btn");
   if (!t) { if (ev.target.id === "finestra") chiudiFinestra(); return; }
   const d = t.dataset;
   if (d.scheda) return vai(d.scheda);
@@ -716,6 +788,7 @@ document.addEventListener("click", async (ev) => {
   if (d.lock) return chiama("lock", d.lock, { entity_id: d.id });
   if (d.media) return chiama("media_player", d.media, { entity_id: d.id });
   if (d.vac) return chiama("vacuum", d.vac, { entity_id: d.id });
+  if (d.gruppo === "light") { const ids = Object.keys(S.stati).filter((id) => eLuce(id) && visibile(id)); if (ids.length) chiama("homeassistant", d.v, { entity_id: ids }); return; }
   if (d.gruppo) { const ids = Object.keys(S.stati).filter((id) => dom(id) === d.gruppo && !accessorio(id) && visibile(id)); if (ids.length) chiama(d.gruppo, d.v, { entity_id: ids }); return; }
   if (d.tutteLuci) { const s = stanze().find((x) => x.id === d.tutteLuci); const ids = s.entita.filter(eLuce); return chiama("light", d.v, { entity_id: ids }); }
   if (d.pin && !modifica3d) { const id = d.pin, dm = dom(id); if (dm === "cover") return chiama("cover", st(id).state === "closed" ? "open_cover" : "close_cover", { entity_id: id }); if (dm === "lock") return chiama("lock", st(id).state === "locked" ? "unlock" : "lock", { entity_id: id }); if (dm === "climate") return vai("stanze"); return chiama(dm === "light" ? "light" : "homeassistant", "toggle", { entity_id: id }); }
@@ -762,6 +835,23 @@ document.addEventListener("click", async (ev) => {
   if (d.salvaDiff !== undefined) { const sc = [...document.querySelectorAll("#listaDiff input:checked")].map((i) => i.value); await salvaCfg({ energia: { ...S.cfg.energia, differibili: sc } }); return chiudiFinestra(); }
   if (d.aggiorna) { try { window.top.location.href = d.aggiorna; } catch (e) { window.open(d.aggiorna, "_blank"); } return; }
   if (d.cercaAgg !== undefined) { try { const r = await api("api/aggiornamenti", { metodo: "POST" }); S.aggiornamento = r.aggiornamento; avviso(r.aggiornamento ? "Nuova versione " + r.aggiornamento.versione + " disponibile" : "Hai già l'ultima versione", "ok"); disegna(); } catch (e) { avviso(e.message, "err"); } return; }
+  if (d.pannello) { pannello = d.pannello; localStorage.setItem("nx_pannello", pannello); entSel = null; return disegna(); }
+  if (d.catEd) { catEd = d.catEd; return disegna(); }
+  if (d.ent && !d.az) { entSel = d.ent; entIcona = null; cercaEnt = ""; pannello = "entita"; disegna(); const x = document.getElementById("entNome"); if (x) x.focus(); return; }
+  if (d.entIcona !== undefined) { entIcona = d.entIcona; t.parentElement.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === t)); return; }
+  if (d.salvaEnt !== undefined) {
+    const p = { ...(S.cfg.personalizza || {}) }, nome = $("#entNome").value.trim(), gruppo = $("#entGruppo").value, icona = entIcona !== null ? entIcona : (p[entSel] || {}).icona || "";
+    const v = {}; if (nome) v.nome = nome.slice(0, 40); if (gruppo) v.gruppo = gruppo; if (icona) v.icona = icona;
+    if (Object.keys(v).length) p[entSel] = v; else delete p[entSel];
+    await salvaCfg({ personalizza: p }); ACCESSORI = null; entSel = null; entIcona = null; avviso("Salvato", "ok"); return disegna();
+  }
+  if (d.annullaEnt !== undefined) { entSel = null; entIcona = null; return disegna(); }
+  if (d.resetEnt) { const p = { ...(S.cfg.personalizza || {}) }; delete p[d.resetEnt]; await salvaCfg({ personalizza: p }); ACCESSORI = null; entSel = null; return disegna(); }
+  if (d.salvaGenerali !== undefined) { await salvaCfg({ aspetto: { ...S.cfg.aspetto, nome: $("#edNome").value.trim().slice(0, 30) || "Casa", sottotitolo: $("#edSotto").value.trim().slice(0, 40) } }); applicaAspetto(); avviso("Salvato", "ok"); return; }
+  if (d.tema) { await salvaCfg({ aspetto: { ...S.cfg.aspetto, tema: d.tema } }); applicaAspetto(); return disegna(); }
+  if (d.accento) { await salvaCfg({ aspetto: { ...S.cfg.aspetto, accento: d.accento } }); applicaAspetto(); return disegna(); }
+  if (d.sezSu || d.sezGiu) { const o = ordineSezioni(), k = d.sezSu || d.sezGiu, i = o.indexOf(k), j = d.sezSu ? i - 1 : i + 1; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; await salvaCfg({ sezioni_ordine: o }); disegnaSchede(); return disegna(); }
+  if (d.assist) { await salvaCfg({ assist: { ...S.cfg.assist, [d.assist]: !S.cfg.assist[d.assist] } }); return disegna(); }
   if (d.pref) { const p = S.cfg.home.preferiti || []; await salvaCfg({ home: { ...S.cfg.home, preferiti: p.includes(d.pref) ? p.filter((x) => x !== d.pref) : [...p, d.pref] } }); avviso(p.includes(d.pref) ? "Tolto dai preferiti" : "Aggiunto ai preferiti della home", "ok"); return disegna(); }
   if (d.nascondi) { await salvaCfg({ nascoste: [...new Set([...(S.cfg.nascoste || []), d.nascondi])] }); avviso(nomeE(d.nascondi) + " nascosto. Lo ritrovi in Impostazioni › Dispositivi nascosti.", "ok"); return disegna(); }
   if (d.mostraDisp) { await salvaCfg({ nascoste: (S.cfg.nascoste || []).filter((x) => x !== d.mostraDisp) }); return disegna(); }
@@ -783,7 +873,7 @@ document.addEventListener("submit", async (ev) => {
   if (f.id === "formAssist") {
     const testo = $("#assist").value.trim(); if (!testo) return;
     rispostaAssist = "Ci penso…"; disegna();
-    try { const r = await api("api/assist", { metodo: "POST", corpo: { testo, conversazione } }); rispostaAssist = r.risposta; conversazione = r.conversazione; }
+    try { const r = await api("api/assist", { metodo: "POST", corpo: { testo, conversazione } }); rispostaAssist = r.risposta; conversazione = r.conversazione; parla(r.risposta); }
     catch (e) { rispostaAssist = "Non ci sono riuscito: " + e.message; }
     disegna(); const a = $("#assist"); if (a) a.focus();
   }
@@ -809,6 +899,7 @@ document.addEventListener("change", async (ev) => {
   if (t.id === "nuovoScena") { nuovo.scena = t.value; return disegna(); }
   if (d.energia) { cacheStorico.id = null; return salvaCfg({ energia: { ...S.cfg.energia, [d.energia]: t.value } }); }
   if (t.id === "impContatore") return salvaCfg({ energia: { ...S.cfg.energia, contatore_kw: Number(t.value) || 3 } });
+  if (t.id === "edAgente") return salvaCfg({ assist: { ...S.cfg.assist, agente: t.value } });
   if (t.id === "impNotifica") return salvaCfg({ agente: { ...S.cfg.agente, notifica: t.value } });
   if (t.id === "fileBackup" && t.files[0]) {
     try { const j = JSON.parse(await t.files[0].text()); await api("api/backup", { metodo: "POST", corpo: j }); avviso("Backup ripristinato", "ok"); await carica(); }
@@ -816,6 +907,11 @@ document.addEventListener("change", async (ev) => {
   }
 });
 document.addEventListener("input", (ev) => {
+  if (ev.target.id === "cercaEd" || ev.target.id === "cercaEnt") {
+    if (ev.target.id === "cercaEd") cercaEd = ev.target.value; else cercaEnt = ev.target.value;
+    const id = ev.target.id, pos = ev.target.selectionStart; disegna(); const x = document.getElementById(id); if (x) { x.focus(); try { x.setSelectionRange(pos, pos); } catch (e) {} }
+    return;
+  }
   if (ev.target.id === "cercaDisp") { const q = ev.target.value.toLowerCase(); document.querySelectorAll("#listaDisp label").forEach((l) => { l.style.display = l.dataset.nome.includes(q) ? "" : "none"; }); }
 });
 document.addEventListener("focusin", (ev) => { if (ev.target.matches("input[type=text],input[type=number],input[type=time],select,input[type=range]")) inInput = true; });

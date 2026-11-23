@@ -1,5 +1,13 @@
 # Novità
 
+## 1.1.0
+- Nuovo editor delle impostazioni: ricerca in tutte le impostazioni, filtri per categoria, menu laterale e pannelli (su telefono il menu diventa una barra scorrevole).
+- Generali: nome e sottotitolo della plancia in alto a sinistra.
+- Tema e colori: scuro, chiaro o automatico e colore principale a scelta.
+- Sezioni: accendi, spegni e riordina le sezioni della barra in alto.
+- Le tue entità: rinomina un dispositivo, cambiagli l'icona o di' a Nexalia cos'è davvero (luce, presa, interruttore, multimedia, accessorio di telecamera, sensore). Vale solo nella plancia.
+- Assist e voce: scegli quale assistente di Home Assistant usare, fai leggere le risposte ad alta voce o nascondi la casella "Chiedi a Nexalia".
+
 ## 1.0.6
 - Schermata principale personalizzabile (Impostazioni › Schermata principale): scegli quali riquadri vedere (stanze, cosa è successo, preferiti, consumo, persone, porte e finestre, allarme, meteo, raccolta di domani) e in che ordine.
 - Preferiti: tocca la stella su un dispositivo per averlo nella home.

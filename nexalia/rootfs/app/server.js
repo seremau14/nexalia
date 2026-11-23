@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.0.6";
+const VERSIONE = "1.1.0";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -41,6 +41,10 @@ const CONFIG_BASE = {
   energia: { solare: "", rete: "", batteria: "", batteria_livello: "", casa: "", contatore_kw: 3, differibili: [] },
   agente: { notifica: "", spegni_luci_uscita: false, avvisa_consumi: true, avvisa_finestre_pioggia: true },
   raccolta: { attiva: false, ora: "20:00", calendario: {} },   // calendario: {"1":"Organico", ...} giorno settimana 1-7 -> tipo (sera prima)
+  aspetto: { nome: "Casa", sottotitolo: "", tema: "scuro", accento: "#5AB0FF" },
+  assist: { agente: "", voce: false, nascondi: false },
+  personalizza: {},      // {entity_id: {nome, icona, gruppo}}
+  sezioni_ordine: [],
   home: { riquadri: ["stanze", "diario", "preferiti", "consumo", "persone", "aperture", "allarme"], preferiti: [] },
   sezioni: ["agente", "stanze", "comandi", "energia", "sicurezza", "persone", "scenari", "raccolta"],
   tema: "scuro",
@@ -430,7 +434,7 @@ function corpo(req, max = 2e6) {
   });
 }
 
-const CHIAVI_MODIFICABILI = ["home", "stanze", "nascoste", "posizioni", "pianta", "energia", "agente", "raccolta", "sezioni", "tema"];
+const CHIAVI_MODIFICABILI = ["aspetto", "assist", "personalizza", "sezioni_ordine", "home", "stanze", "nascoste", "posizioni", "pianta", "energia", "agente", "raccolta", "sezioni", "tema"];
 
 async function api(req, res, p) {
   if (p === "/api/stato" && req.method === "GET") {
@@ -455,7 +459,8 @@ async function api(req, res, p) {
   }
   if (p === "/api/assist" && req.method === "POST") {
     const b = await corpo(req);
-    const r = await wsChiama({ type: "conversation/process", text: String(b.testo || "").slice(0, 500), language: ha.config.lingua || "it", conversation_id: b.conversazione || undefined }, 60000);
+    const agente = config.assist && /^conversation\.[a-z0-9_]+$/.test(config.assist.agente || "") ? config.assist.agente : undefined;
+    const r = await wsChiama({ type: "conversation/process", text: String(b.testo || "").slice(0, 500), language: ha.config.lingua || "it", conversation_id: b.conversazione || undefined, agent_id: agente }, 60000);
     const sp = r && r.response && r.response.speech && r.response.speech.plain && r.response.speech.plain.speech;
     return json(res, { ok: true, risposta: sp || "Fatto.", conversazione: r.conversation_id });
   }
