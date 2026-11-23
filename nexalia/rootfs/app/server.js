@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.0.5";
+const VERSIONE = "1.0.6";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -41,6 +41,7 @@ const CONFIG_BASE = {
   energia: { solare: "", rete: "", batteria: "", batteria_livello: "", casa: "", contatore_kw: 3, differibili: [] },
   agente: { notifica: "", spegni_luci_uscita: false, avvisa_consumi: true, avvisa_finestre_pioggia: true },
   raccolta: { attiva: false, ora: "20:00", calendario: {} },   // calendario: {"1":"Organico", ...} giorno settimana 1-7 -> tipo (sera prima)
+  home: { riquadri: ["stanze", "diario", "preferiti", "consumo", "persone", "aperture", "allarme"], preferiti: [] },
   sezioni: ["agente", "stanze", "comandi", "energia", "sicurezza", "persone", "scenari", "raccolta"],
   tema: "scuro",
   licenza: { codice: "", stato: "gratuita", scadenza: null, indirizzo: null, tunnel_token: null, ultimo_ok: null, messaggio: "" },
@@ -429,7 +430,7 @@ function corpo(req, max = 2e6) {
   });
 }
 
-const CHIAVI_MODIFICABILI = ["stanze", "nascoste", "posizioni", "pianta", "energia", "agente", "raccolta", "sezioni", "tema"];
+const CHIAVI_MODIFICABILI = ["home", "stanze", "nascoste", "posizioni", "pianta", "energia", "agente", "raccolta", "sezioni", "tema"];
 
 async function api(req, res, p) {
   if (p === "/api/stato" && req.method === "GET") {

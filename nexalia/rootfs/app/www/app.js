@@ -40,6 +40,10 @@ const IC = {
   su: "M6 15l6-6 6 6", giu: "M6 9l6 6 6-6", stop: "M7 7h10v10H7z",
   chiudi: "M6 6l12 12M18 6L6 18",
   invio: "M4 12l16-8-6 16-2-7z",
+  stella: "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z",
+  occhio: "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  nascondi: "M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2",
+  meteo: "M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 10a4 4 0 0 1-.5 8z",
   globo: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z",
 };
 document.getElementById("icone").innerHTML = Object.entries(IC).map(([k, d]) => `<symbol id="i-${k}" viewBox="0 0 24 24"><path d="${d}"/></symbol>`).join("");
@@ -191,7 +195,9 @@ function tessera(id) {
   else if (d === "scene" || d === "script" || d === "button") { cls = "cliccabile"; azione = `data-az="esegui"`; }
   if (pericolo(id) || (eApertura(id) && v === "on")) cls += " allarme";
   const tg = ["light", "switch", "input_boolean", "fan"].includes(d) ? `<span class="tg ${on ? "on" : ""}" aria-hidden="true"></span>` : "";
-  return `<div class="tess ${on && !["binary_sensor", "sensor"].includes(d) ? "on" : ""} ${cls}${nd}${tg ? " con-tg" : ""}" data-id="${id}" ${azione} ${azione ? 'role="button" tabindex="0"' : ""}>
+  const pref = (S.cfg.home.preferiti || []).includes(id);
+  const azioni = `<span class="tess-az"><button class="mini ${pref ? "si" : ""}" data-pref="${id}" aria-label="${pref ? "Togli dai preferiti" : "Aggiungi ai preferiti"}" title="${pref ? "Togli dai preferiti" : "Preferito in home"}">${ico("stella", "s")}</button><button class="mini" data-nascondi="${id}" aria-label="Nascondi dalla plancia" title="Nascondi dalla plancia">${ico("nascondi", "s")}</button></span>`;
+  return `<div class="tess ${on && !["binary_sensor", "sensor"].includes(d) ? "on" : ""} ${cls}${nd}${tg ? " con-tg" : ""}" data-id="${id}" ${azione} ${azione ? 'role="button" tabindex="0"' : ""}>${azioni}
     <div class="testa"><div class="ico">${ico(iconaE(id))}</div><div><div class="nome">${esc(nomeE(id))}</div><div class="val">${esc(testoStato(id))}</div></div></div>${tg}${extra}</div>`;
 }
 
@@ -247,46 +253,61 @@ function disegna() {
 // ---------- Agente
 const ICONE_DIARIO = { persone: "persone", allerta: "allerta", sicurezza: "sicurezza", goccia: "goccia", luci: "luci", energia: "energia", raccolta: "raccolta", batteria: "batteria", scenari: "scenari" };
 let rispostaAssist = "", conversazione = null;
+const RIQUADRI = {
+  stanze: "Stanze", diario: "Cosa è successo", preferiti: "Preferiti",
+  consumo: "Consumo adesso", persone: "Persone in casa", aperture: "Porte e finestre", allarme: "Allarme", meteo: "Meteo", raccolta: "Raccolta di domani",
+};
+const KPI = ["consumo", "persone", "aperture", "allarme", "meteo", "raccolta"];
+const METEO = { "clear-night": "Sereno", cloudy: "Nuvoloso", fog: "Nebbia", hail: "Grandine", lightning: "Temporale", "lightning-rainy": "Temporale", partlycloudy: "Poco nuvoloso", pouring: "Pioggia forte", rainy: "Pioggia", snowy: "Neve", "snowy-rainy": "Nevischio", sunny: "Sole", windy: "Vento", "windy-variant": "Vento", exceptional: "Allerta" };
+function riquadroKpi(k) {
+  if (k === "consumo") { const c = S.cfg.energia.casa ? watt(S.cfg.energia.casa) : null; return [RIQUADRI[k], c != null ? fmtW(c) : "—", "energia"]; }
+  if (k === "persone") { const p = Object.values(S.stati).filter((x) => x.entity_id.startsWith("person.")); const n = p.filter((x) => x.state === "home").length; return [RIQUADRI[k], p.length ? n + " su " + p.length : "—", "persone"]; }
+  if (k === "aperture") { const a = Object.keys(S.stati).filter((id) => eApertura(id) && visibileStanza(id)); const o = a.filter((id) => st(id).state === "on").length; return [RIQUADRI[k], a.length ? (o ? o + (o === 1 ? " aperta" : " aperte") : "Tutte chiuse") : "—", "finestra"]; }
+  if (k === "allarme") { const a = Object.keys(S.stati).find((id) => dom(id) === "alarm_control_panel"); return [RIQUADRI[k], a ? testoAllarme(st(a).state) : "Nessuno", "sicurezza"]; }
+  if (k === "meteo") { const w = Object.keys(S.stati).find((id) => dom(id) === "weather"); if (!w) return [RIQUADRI[k], "—", "meteo"]; const t = attr(w, "temperature"); return [RIQUADRI[k], (METEO[st(w).state] || st(w).state) + (t != null ? " · " + fmt1(t) + "°" : ""), "meteo"]; }
+  if (k === "raccolta") { const dn = ((new Date().getDay() + 1) % 7) || 7; return [RIQUADRI[k], S.cfg.raccolta.calendario[String(dn)] || "Nessuna", "raccolta"]; }
+  return null;
+}
 function vAgente() {
   const d = new Date();
+  const scelti = (S.cfg.home && S.cfg.home.riquadri) || [];
   const ss = stanze();
   const giorno = d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
   const ultima = S.diario[0];
   const tipo = ultima ? ultima.tipo : "info";
-  const persone = Object.values(S.stati).filter((x) => x.entity_id.startsWith("person."));
-  const inCasa = persone.filter((p) => p.state === "home").length;
-  const aperture = Object.keys(S.stati).filter(eApertura);
-  const aperte = aperture.filter((id) => st(id).state === "on");
-  const allarme = Object.keys(S.stati).find((id) => dom(id) === "alarm_control_panel");
-  const consumo = S.cfg.energia.casa ? watt(S.cfg.energia.casa) : null;
+  const aperte = Object.keys(S.stati).filter((id) => eApertura(id) && st(id).state === "on");
   const luciAccese = Object.keys(S.stati).filter((id) => eLuce(id) && st(id).state === "on").length;
-  let frase = ultima ? ultima.titolo : (S.collegato ? `Tutto tranquillo. ${luciAccese ? luciAccese + (luciAccese === 1 ? " luce accesa" : " luci accese") : "Luci spente"}${aperte.length ? ", " + aperte.length + (aperte.length === 1 ? " apertura aperta" : " aperture aperte") : ""}.` : "Mi sto collegando a Home Assistant…");
-  return `<div class="agente">
-    <section class="card"><div class="dim" style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Cosa succede in casa</div>
+  const frase = ultima ? ultima.titolo : (S.collegato ? `Tutto tranquillo. ${luciAccese ? luciAccese + (luciAccese === 1 ? " luce accesa" : " luci accese") : "Luci spente"}${aperte.length ? ", " + aperte.length + (aperte.length === 1 ? " apertura aperta" : " aperte") : ""}.` : "Mi sto collegando a Home Assistant…");
+  const conStanze = scelti.includes("stanze"), conDiario = scelti.includes("diario");
+  const colonne = [conStanze ? "300px" : null, "1fr", conDiario ? "330px" : null].filter(Boolean).join(" ");
+  const pref = ((S.cfg.home && S.cfg.home.preferiti) || []).filter((id) => st(id) && !(S.cfg.nascoste || []).includes(id));
+  const sezPref = scelti.includes("preferiti") ? `<section class="card" style="margin-top:16px"><div class="tit"><h2>Preferiti</h2><span class="dim" style="font-size:13px">Tocca la stella su un dispositivo per aggiungerlo qui</span></div>${pref.length ? `<div class="tessere">${pref.map(tessera).join("")}</div>` : '<div class="dim">Nessun preferito: apri una stanza e tocca la stella sulle tessere.</div>'}</section>` : "";
+  // sotto al blocco principale: preferiti e riquadri nell'ordine scelto (riquadri vicini nella stessa fila)
+  let sotto = "", fila = [];
+  const chiudiFila = () => { if (fila.length) sotto += `<div class="kpi" style="--kcols:${Math.min(fila.length, 4)}">${fila.map(([t, v, ic]) => `<div><small>${ico(ic, "s")} ${t}</small><b>${esc(v)}</b></div>`).join("")}</div>`; fila = []; };
+  for (const k of scelti) { if (KPI.includes(k)) { const r = riquadroKpi(k); if (r) fila.push(r); } else if (k === "preferiti") { chiudiFila(); sotto += sezPref; } }
+  chiudiFila();
+  return `<div class="agente" style="--cols:${colonne}">
+    ${conStanze ? `<section class="card"><div class="dim" style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Cosa succede in casa</div>
       <div class="ora">${ora(d)} · <span style="text-transform:capitalize">${giorno}</span></div>
       <div class="gruppo">Stanze</div>
       <div class="stanze-mini">${ss.map((s) => { const t = tempStanza(s); const l = s.entita.filter((id) => eLuce(id) && st(id).state === "on").length; return `<button class="st-mini ${l ? "on" : ""}" data-apri-stanza="${esc(s.id)}"><b>${esc(s.nome)}</b><span>${t != null ? fmt1(t) + "°" : "—"}</span><small>${l ? l + (l === 1 ? " luce accesa" : " luci accese") : s.entita.length + " dispositivi"}</small></button>`; }).join("") || '<div class="dim">Crea le stanze in Stanze › Gestisci stanze.</div>'}</div>
-    </section>
+    </section>` : ""}
     <section class="card centro">
       <div class="orb ${tipo}"><div class="anello"></div><div class="anello b"></div><div class="nucleo">${ico(ultima ? (ICONE_DIARIO[ultima.icona] || "agente") : "agente", "l")}</div></div>
       <div class="etichetta">Nexalia · ${tipo === "avviso" ? "attenzione" : tipo === "fatto" ? "fatto" : "ti tiene d'occhio la casa"}</div>
-      ${ultima ? `<div class="dim">${esc(ultima.stanza || "Casa")} · ${ora(ultima.t)}</div>` : ""}
+      ${ultima ? `<div class="dim">${esc(ultima.stanza || "Casa")} · ${ora(ultima.t)}</div>` : conStanze ? "" : `<div class="dim" style="text-transform:capitalize">${ora(d)} · ${giorno}</div>`}
       <div class="frase">“${esc(frase)}”</div>
       ${ultima && ultima.testo ? `<div class="mut" style="max-width:560px">${esc(ultima.testo)}</div>` : ""}
       ${rispostaAssist ? `<div class="risposta"><b class="etichetta" style="display:block;margin-bottom:4px">Nexalia</b>${esc(rispostaAssist)}</div>` : ""}
       <form class="chat" id="formAssist"><input id="assist" type="text" placeholder="Chiedi a Nexalia: “accendi le luci in cucina”" autocomplete="off" aria-label="Chiedi a Nexalia"><button class="btn p" aria-label="Invia">${ico("invio")}</button></form>
       <div class="dim" style="font-size:12px">Le richieste passano dall'assistente di Home Assistant (Assist), anche con un modello AI se lo hai configurato.</div>
     </section>
-    <section class="card"><div class="tit"><h2>Cosa è successo</h2>${S.diario.length ? '<button class="btn pic" data-azz-diario>Svuota</button>' : ""}</div>
+    ${conDiario ? `<section class="card"><div class="tit"><h2>Cosa è successo</h2>${S.diario.length ? '<button class="btn pic" data-azz-diario>Svuota</button>' : ""}</div>
       <div class="diario">${S.diario.slice(0, 40).map((v) => `<div class="voce ${v.tipo}"><div class="ico">${ico(ICONE_DIARIO[v.icona] || "agente", "s")}</div><div><small>${ora(v.t)}${v.stanza ? " · " + esc(v.stanza) : ""}</small><b>${esc(v.titolo)}</b>${v.testo ? `<p>${esc(v.testo)}</p>` : ""}</div></div>`).join("") || '<div class="vuoto">Qui Nexalia annota quello che succede e quello che fa per te.</div>'}</div>
-    </section>
+    </section>` : ""}
   </div>
-  <div class="kpi">
-    <div><small>Consumo adesso</small><b>${consumo != null ? fmtW(consumo) : "—"}</b></div>
-    <div><small>Persone in casa</small><b>${persone.length ? inCasa + " su " + persone.length : "—"}</b></div>
-    <div><small>Porte e finestre</small><b>${aperture.length ? (aperte.length ? aperte.length + (aperte.length === 1 ? " aperta" : " aperte") : "Tutte chiuse") : "—"}</b></div>
-    <div><small>Allarme</small><b>${allarme ? testoAllarme(st(allarme).state) : "Nessuno"}</b></div>
-  </div>`;
+  ${sotto}`;
 }
 
 // ---------- Stanze
@@ -629,6 +650,12 @@ function vImpostazioni() {
         <div><b style="font-size:14px">Carichi da spegnere se superi il contatore</b><div class="dim" style="font-size:13px;margin-bottom:8px">Es. lavatrice, scaldabagno: Nexalia li spegne per primi</div><button class="btn pic" data-differibili>${(e.differibili || []).length ? (e.differibili || []).length + " scelti · modifica" : "Scegli"}</button></div>
       </div>
     </section>
+    <section class="card"><h2>Schermata principale</h2><p class="mut" style="margin-top:-6px">Scegli cosa vedere nella home e in che ordine. Il cerchio dell'agente c'è sempre.</p>
+      ${ordineHome().map((k, i, a) => `<div class="voce-imp"><div><b>${RIQUADRI[k]}</b></div><button class="btn pic" data-su="${k}" ${i === 0 ? "disabled" : ""} aria-label="Sposta su">${ico("su", "s")}</button><button class="btn pic" data-giu="${k}" ${i === a.length - 1 ? "disabled" : ""} aria-label="Sposta giù">${ico("giu", "s")}</button><button class="tg ${S.cfg.home.riquadri.includes(k) ? "on" : ""}" data-riq="${k}" aria-label="Mostra ${RIQUADRI[k]}"></button></div>`).join("")}
+    </section>
+    <section class="card"><h2>Dispositivi nascosti</h2>
+      ${(S.cfg.nascoste || []).length ? (S.cfg.nascoste || []).map((id) => `<div class="voce-imp">${ico(st(id) ? iconaE(id) : "sensore")}<div><b>${esc(st(id) ? nomeE(id) : id)}</b><small>${esc(id)}</small></div><button class="btn pic" data-mostra-disp="${id}">Mostra di nuovo</button></div>`).join("") : '<p class="mut">Nessun dispositivo nascosto. Per nasconderne uno tocca l\'icona con l\'occhio barrato sulla sua tessera.</p>'}
+    </section>
     <section class="card"><h2>Sezioni</h2>
       ${SCHEDE.filter((s) => !["agente", "impostazioni"].includes(s.id)).map((s) => `<div class="voce-imp">${ico(s.ic)}<div><b>${s.nome}</b>${s.completa && !completa() ? "<small>Con la licenza completa</small>" : ""}</div><button class="tg ${sez.includes(s.id) && (!s.completa || completa()) ? "on" : ""}" data-sezione="${s.id}" ${s.completa && !completa() ? "disabled" : ""} aria-label="Mostra ${s.nome}"></button></div>`).join("")}
     </section>
@@ -650,6 +677,16 @@ function disegnaQR() {
   const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
   sc.onload = fai; sc.onerror = () => { box.textContent = "QR code non disponibile senza internet: usa Copia."; };
   document.head.appendChild(sc);
+}
+
+function ordineHome() {
+  const base = (S.cfg.home.ordine || S.cfg.home.riquadri || []).filter((k) => RIQUADRI[k]);
+  return [...base, ...Object.keys(RIQUADRI).filter((k) => !base.includes(k))];
+}
+function salvaHome(riquadri, ordine) {
+  // l'ordine segue la lista completa; "riquadri" contiene solo quelli accesi, nell'ordine scelto
+  const att = ordine.filter((k) => riquadri.includes(k));
+  return salvaCfg({ home: { ...S.cfg.home, riquadri: att, ordine } }).then(disegna);
 }
 
 function scegliDifferibili() {
@@ -725,6 +762,11 @@ document.addEventListener("click", async (ev) => {
   if (d.salvaDiff !== undefined) { const sc = [...document.querySelectorAll("#listaDiff input:checked")].map((i) => i.value); await salvaCfg({ energia: { ...S.cfg.energia, differibili: sc } }); return chiudiFinestra(); }
   if (d.aggiorna) { try { window.top.location.href = d.aggiorna; } catch (e) { window.open(d.aggiorna, "_blank"); } return; }
   if (d.cercaAgg !== undefined) { try { const r = await api("api/aggiornamenti", { metodo: "POST" }); S.aggiornamento = r.aggiornamento; avviso(r.aggiornamento ? "Nuova versione " + r.aggiornamento.versione + " disponibile" : "Hai già l'ultima versione", "ok"); disegna(); } catch (e) { avviso(e.message, "err"); } return; }
+  if (d.pref) { const p = S.cfg.home.preferiti || []; await salvaCfg({ home: { ...S.cfg.home, preferiti: p.includes(d.pref) ? p.filter((x) => x !== d.pref) : [...p, d.pref] } }); avviso(p.includes(d.pref) ? "Tolto dai preferiti" : "Aggiunto ai preferiti della home", "ok"); return disegna(); }
+  if (d.nascondi) { await salvaCfg({ nascoste: [...new Set([...(S.cfg.nascoste || []), d.nascondi])] }); avviso(nomeE(d.nascondi) + " nascosto. Lo ritrovi in Impostazioni › Dispositivi nascosti.", "ok"); return disegna(); }
+  if (d.mostraDisp) { await salvaCfg({ nascoste: (S.cfg.nascoste || []).filter((x) => x !== d.mostraDisp) }); return disegna(); }
+  if (d.riq) { const r = S.cfg.home.riquadri || []; return salvaHome(r.includes(d.riq) ? r.filter((x) => x !== d.riq) : [...r, d.riq], ordineHome()); }
+  if (d.su || d.giu) { const o = ordineHome(), k = d.su || d.giu, i = o.indexOf(k), j = d.su ? i - 1 : i + 1; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; return salvaHome(S.cfg.home.riquadri || [], o); }
   if (d.mostraInd !== undefined) { mostraIndirizzo = !mostraIndirizzo; return disegna(); }
   if (d.qr !== undefined) { qrVisibile = !qrVisibile; return disegna(); }
   if (d.copiaInd !== undefined) { const u = S.cfg.licenza.indirizzo; try { await navigator.clipboard.writeText(u); avviso("Indirizzo copiato", "ok"); } catch (e) { mostraIndirizzo = true; disegna(); avviso("Copia non riuscita: selezionalo e copialo a mano", "err"); } return; }

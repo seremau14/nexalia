@@ -1,5 +1,10 @@
 # Novità
 
+## 1.0.6
+- Schermata principale personalizzabile (Impostazioni › Schermata principale): scegli quali riquadri vedere (stanze, cosa è successo, preferiti, consumo, persone, porte e finestre, allarme, meteo, raccolta di domani) e in che ordine.
+- Preferiti: tocca la stella su un dispositivo per averlo nella home.
+- Nascondi dispositivo: tocca l'occhio barrato su una tessera; lo ritrovi in Impostazioni › Dispositivi nascosti.
+
 ## 1.0.5
 - Luci: solo le luci vere. Il faretto delle telecamere e lo schermo di Echo Show e smart display non compaiono più tra le luci.
 - Prese: solo le prese. Gli altri interruttori sono in "Altri interruttori"; quelli di telecamere ed Echo (privacy, microfono, sveglie, modalità notte…) sono raggruppati sotto Telecamere o Multimedia.
