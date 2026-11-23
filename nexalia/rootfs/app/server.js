@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.1.3";
+const VERSIONE = "1.1.4";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -533,7 +533,13 @@ const server = http.createServer(async (req, res) => {
     if (p === "/") p = "/index.html";
     const f = path.normalize(path.join(WWW, p));
     if (!f.startsWith(WWW) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end("Non trovato"); }
-    res.writeHead(200, { "content-type": TIPI[path.extname(f)] || "application/octet-stream", "cache-control": p === "/index.html" ? "no-store" : "max-age=3600" });
+    if (p === "/index.html") {
+      // la versione nei link obbliga il browser a scaricare i file nuovi dopo ogni aggiornamento
+      const html = fs.readFileSync(f, "utf8").replace(/(href="style\.css|src="app\.js)"/g, `$1?v=${VERSIONE}"`);
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      return res.end(html);
+    }
+    res.writeHead(200, { "content-type": TIPI[path.extname(f)] || "application/octet-stream", "cache-control": "no-cache" });
     fs.createReadStream(f).pipe(res);
   } catch (e) {
     log("Errore", p, e.message);

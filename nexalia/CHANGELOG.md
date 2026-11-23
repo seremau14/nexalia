@@ -1,5 +1,8 @@
 # Novità
 
+## 1.1.4
+- Dopo un aggiornamento la plancia mostra subito la versione nuova: il browser non riusa più i file vecchi rimasti in memoria.
+
 ## 1.1.3
 - In alto a sinistra resta sempre "Casa · Nexalia"; in Impostazioni › Generali puoi aggiungere accanto il nome della tua casa (facoltativo).
 - Tolta la scelta di tema e colori: la plancia mantiene i suoi colori originali.
