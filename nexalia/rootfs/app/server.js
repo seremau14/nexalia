@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.0.1";
+const VERSIONE = "1.0.2";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -20,7 +20,16 @@ const CLOUDFLARED = process.env.CLOUDFLARED || "/usr/bin/cloudflared";
 const FILE_CONFIG = path.join(DATI, "nexalia.json");
 const GIORNI_OFFLINE = 7;
 
-const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
+// Ora locale della casa (il contenitore lavora in UTC): usa il fuso orario impostato in Home Assistant
+function adesso() {
+  const tz = global.fusoHA || "Europe/Rome";
+  let t;
+  try { t = new Date().toLocaleString("sv-SE", { timeZone: tz, hour12: false }); } catch (e) { t = new Date().toISOString().replace("T", " ").slice(0, 19); }
+  const [data, orario] = t.split(" ");
+  const g = new Date(data + "T12:00:00Z").getUTCDay(); // 0 = domenica
+  return { data, hhmm: orario.slice(0, 5), hms: orario.slice(0, 8), giorno: g };
+}
+const log = (...a) => console.log(adesso().hms, ...a);
 
 // ---------------------------------------------------------------- configurazione salvata
 const CONFIG_BASE = {
@@ -114,6 +123,7 @@ async function caricaRegistri() {
   ha.dispositivi = disp.map((d) => ({ id: d.id, area: d.area_id, nome: d.name_by_user || d.name, produttore: d.manufacturer, modello: d.model }));
   ha.entita = ent.map((e) => ({ id: e.entity_id, area: e.area_id, dispositivo: e.device_id, nascosta: !!(e.hidden_by || e.disabled_by), categoria: e.entity_category || null }));
   ha.config = { nome: cfg.location_name, unita: cfg.unit_system, lingua: cfg.language, fuso: cfg.time_zone, versione: cfg.version };
+  if (cfg.time_zone) global.fusoHA = cfg.time_zone;
   ha.servizi = Object.fromEntries(Object.entries(serv).map(([d, s]) => [d, Object.keys(s)]));
   inviaSSE("ricarica", {});
 }
@@ -260,11 +270,11 @@ async function controllaConsumi() {
 // promemoria raccolta + batterie, ogni minuto
 let ultimoPromemoria = "", ultimoControlloBatterie = "";
 setInterval(() => {
-  const ora = new Date(), hhmm = ora.toTimeString().slice(0, 5), oggi = ora.toISOString().slice(0, 10);
+  const { hhmm, data: oggi, giorno } = adesso();
   const r = config.raccolta;
   if (r.attiva && hhmm === r.ora && ultimoPromemoria !== oggi) {
     ultimoPromemoria = oggi;
-    const domani = ((ora.getDay() + 1) % 7) || 7; // 1 = lunedì ... 7 = domenica
+    const domani = ((giorno + 1) % 7) || 7; // 1 = lunedì ... 7 = domenica
     const tipo = r.calendario[String(domani)];
     if (tipo) { const v = annota({ tipo: "avviso", icona: "raccolta", titolo: "Stasera porta fuori: " + tipo, testo: "Domani mattina passa la raccolta.", stanza: "Raccolta" }); notifica("Nexalia – raccolta", v.titolo); }
   }

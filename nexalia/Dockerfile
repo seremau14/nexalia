@@ -1,8 +1,8 @@
-ARG BUILD_FROM
-FROM ${BUILD_FROM}
+ARG BUILD_ARCH=amd64
+FROM ghcr.io/home-assistant/${BUILD_ARCH}-base:3.21
 ARG BUILD_ARCH
 
-RUN apk add --no-cache nodejs ca-certificates curl \
+RUN apk add --no-cache nodejs ca-certificates curl tzdata \
  && case "${BUILD_ARCH}" in \
       amd64) CF=amd64 ;; aarch64) CF=arm64 ;; armv7) CF=arm ;; *) CF=amd64 ;; \
     esac \

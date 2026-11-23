@@ -129,7 +129,7 @@ function testoStato(id) {
   if (d === "alarm_control_panel") return testoAllarme(v);
   return v;
 }
-const testoAllarme = (v) => ({ disarmed: "Disinserito", armed_away: "Inserito · totale", armed_home: "Inserito · in casa", armed_night: "Inserito · notte", armed_vacation: "Inserito · vacanza", armed_custom_bypass: "Inserito", arming: "Si inserisce…", pending: "In attesa…", triggered: "SCATTATO" })[v] || v;
+const testoAllarme = (v) => ({ unavailable: "Non disponibile", unknown: "Sconosciuto", disarmed: "Disinserito", armed_away: "Inserito · totale", armed_home: "Inserito · in casa", armed_night: "Inserito · notte", armed_vacation: "Inserito · vacanza", armed_custom_bypass: "Inserito", arming: "Si inserisce…", pending: "In attesa…", triggered: "SCATTATO" })[v] || v;
 const pericolo = (id) => dom(id) === "binary_sensor" && ["smoke", "gas", "moisture", "carbon_monoxide", "problem"].includes(attr(id, "device_class")) && st(id).state === "on";
 
 function tessera(id) {
@@ -220,7 +220,7 @@ function vAgente() {
   const allarme = Object.keys(S.stati).find((id) => dom(id) === "alarm_control_panel");
   const consumo = S.cfg.energia.casa ? watt(S.cfg.energia.casa) : null;
   const luciAccese = Object.keys(S.stati).filter((id) => dom(id) === "light" && st(id).state === "on").length;
-  let frase = ultima ? ultima.titolo : (S.collegato ? `Tutto tranquillo. ${luciAccese ? luciAccese + (luciAccese === 1 ? " luce accesa" : " luci accese") : "Luci spente"}${aperte.length ? ", " + aperte.length + " aperture aperte" : ""}.` : "Mi sto collegando a Home Assistant…");
+  let frase = ultima ? ultima.titolo : (S.collegato ? `Tutto tranquillo. ${luciAccese ? luciAccese + (luciAccese === 1 ? " luce accesa" : " luci accese") : "Luci spente"}${aperte.length ? ", " + aperte.length + (aperte.length === 1 ? " apertura aperta" : " aperture aperte") : ""}.` : "Mi sto collegando a Home Assistant…");
   return `<div class="agente">
     <section class="card"><div class="dim" style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Cosa succede in casa</div>
       <div class="ora">${ora(d)} · <span style="text-transform:capitalize">${giorno}</span></div>
@@ -245,7 +245,7 @@ function vAgente() {
     <div><small>Consumo adesso</small><b>${consumo != null ? fmtW(consumo) : "—"}</b></div>
     <div><small>Persone in casa</small><b>${persone.length ? inCasa + " su " + persone.length : "—"}</b></div>
     <div><small>Porte e finestre</small><b>${aperture.length ? (aperte.length ? aperte.length + (aperte.length === 1 ? " aperta" : " aperte") : "Tutte chiuse") : "—"}</b></div>
-    <div><small>Allarme</small><b>${allarme ? testoAllarme(st(allarme).state) : "—"}</b></div>
+    <div><small>Allarme</small><b>${allarme ? testoAllarme(st(allarme).state) : "Nessuno"}</b></div>
   </div>`;
 }
 
