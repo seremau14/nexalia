@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.1.4";
+const VERSIONE = "1.2.0";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -45,6 +45,11 @@ const CONFIG_BASE = {
   assist: { agente: "", voce: false, nascondi: false },
   personalizza: {},      // {entity_id: {nome, icona, gruppo}}
   sezioni_ordine: [],
+  generali: { admin: "", intestazione_fissa: true },
+  pastiglie: { attive: ["sicurezza", "posta", "rifiuti", "porte", "finestre", "serrature", "aggiornamenti", "clima", "pioggia_adesso"], meteo: "", sensori_meteo: false, temperatura: "", umidita: "", vento: "", pioggia: "", pioggia_oggi: "", posta: "", rifiuti_ora: 18 },
+  antifurto: { entita: "", modi: ["armed_home", "armed_away", "armed_night"], scattato: "", scattato_valore: "", sirena: "", zona: "", tasti: [] },
+  widget: { compatte: "auto", popup_avvisi: true, elenco: [], avvisi: [] },
+  azioni: [],            // [{tipo, icona, nome, entita, lista:[], conferma}]
   home: { riquadri: ["stanze", "diario", "preferiti", "consumo", "persone", "aperture", "allarme"], preferiti: [] },
   sezioni: ["agente", "stanze", "comandi", "energia", "sicurezza", "persone", "scenari", "raccolta"],
   tema: "scuro",
@@ -434,12 +439,23 @@ function corpo(req, max = 2e6) {
   });
 }
 
-const CHIAVI_MODIFICABILI = ["aspetto", "assist", "personalizza", "sezioni_ordine", "home", "stanze", "nascoste", "posizioni", "pianta", "energia", "agente", "raccolta", "sezioni", "tema"];
+const CHIAVI_MODIFICABILI = ["generali", "pastiglie", "antifurto", "widget", "azioni", "aspetto", "assist", "personalizza", "sezioni_ordine", "home", "stanze", "nascoste", "posizioni", "pianta", "energia", "agente", "raccolta", "sezioni", "tema"];
 
+// utente di Home Assistant che sta guardando (Home Assistant lo passa a Nexalia con l'ingress)
+function utenteDi(req) {
+  const h = (k) => { try { return decodeURIComponent(String(req.headers[k] || "")); } catch (e) { return String(req.headers[k] || ""); } };
+  return { id: h("x-remote-user-id"), nome: h("x-remote-user-name"), visibile: h("x-remote-user-display-name") };
+}
+function puoConfigurare(req) {
+  const a = String((config.generali && config.generali.admin) || "").trim().toLowerCase();
+  if (!a) return true;
+  const u = utenteDi(req);
+  return [u.nome, u.visibile, u.id].some((x) => x && x.toLowerCase() === a);
+}
 async function api(req, res, p) {
   if (p === "/api/stato" && req.method === "GET") {
     return json(res, {
-      versione: VERSIONE, collegato: ha.pronto,
+      versione: VERSIONE, collegato: ha.pronto, utente: utenteDi(req), configuratore: puoConfigurare(req),
       ha: { stati: Object.values(ha.stati), aree: ha.aree, dispositivi: ha.dispositivi, entita: ha.entita, config: ha.config, servizi: ha.servizi },
       config: configPubblica(), diario, tunnel: tunnelStato, aggiornamento,
     });
@@ -480,6 +496,7 @@ async function api(req, res, p) {
   }
   if (p === "/api/config" && req.method === "PUT") {
     const b = await corpo(req);
+    if (!puoConfigurare(req) && Object.keys(b).some((k) => !["home", "nascoste"].includes(k))) return json(res, { ok: false, errore: "Solo l'amministratore della plancia può cambiare le impostazioni" }, 403);
     for (const k of CHIAVI_MODIFICABILI) if (k in b) config[k] = b[k];
     if (!completa()) { config.posizioni = config.posizioni || {}; }
     salva();
@@ -507,7 +524,16 @@ async function api(req, res, p) {
     res.writeHead(200, { "content-type": "application/json", "content-disposition": `attachment; filename="nexalia-backup-${new Date().toISOString().slice(0, 10)}.json"` });
     return res.end(JSON.stringify({ nexalia: VERSIONE, data: new Date().toISOString(), config: c }, null, 1));
   }
+  if (p === "/api/reset" && req.method === "POST") {
+    if (!puoConfigurare(req)) return json(res, { ok: false, errore: "Solo l'amministratore della plancia" }, 403);
+    const tieni = { id_casa: config.id_casa, licenza: config.licenza };
+    config = Object.assign(JSON.parse(JSON.stringify(CONFIG_BASE)), tieni);
+    salva(); inviaSSE("config", configPubblica());
+    annota({ tipo: "info", icona: "agente", titolo: "Configurazione azzerata", testo: "La licenza resta attiva." });
+    return json(res, { ok: true, config: configPubblica() });
+  }
   if (p === "/api/backup" && req.method === "POST") {
+    if (!puoConfigurare(req)) return json(res, { ok: false, errore: "Solo l'amministratore della plancia" }, 403);
     if (!completa()) return json(res, { ok: false, errore: "Il ripristino è incluso nella licenza completa" }, 403);
     const b = await corpo(req, 5e6);
     if (!b.config) return json(res, { ok: false, errore: "File di backup non valido" }, 400);
@@ -535,7 +561,7 @@ const server = http.createServer(async (req, res) => {
     if (!f.startsWith(WWW) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end("Non trovato"); }
     if (p === "/index.html") {
       // la versione nei link obbliga il browser a scaricare i file nuovi dopo ogni aggiornamento
-      const html = fs.readFileSync(f, "utf8").replace(/(href="style\.css|src="app\.js)"/g, `$1?v=${VERSIONE}"`);
+      const html = fs.readFileSync(f, "utf8").replace(/((?:href|src)="[a-z0-9_-]+\.(?:css|js))"/g, `$1?v=${VERSIONE}"`);
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
       return res.end(html);
     }

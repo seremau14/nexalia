@@ -1,5 +1,14 @@
 # Novità
 
+## 1.2.0
+- Impostazioni: utente amministratore (solo lui vede e cambia le impostazioni), modo chiosco senza la barra laterale di Home Assistant, intestazione fissa, assistente e voce, sezioni e ordine della barra, diagnosi, autorilevamento e reset totale.
+- Home a blocchi in ordine libero: intestazione col meteo, pastiglie di stato, agente, stanze, dispositivi, cosa è successo, persone, widget, azioni rapide e i riquadri di prima.
+- Pastiglie di stato: antifurto, posta, rifiuti, porte, finestre, serrature, stampanti, aggiornamenti, luci, tapparelle, clima, prese, musica, presenza, temperatura, umidità e pioggia. Compaiono solo quando hanno qualcosa da dire.
+- Antifurto: modalità da mostrare, sensore "scattato" con il suo valore, sirena con il tasto per spegnerla, zona e tasti personalizzati per chi non ha una centrale.
+- Widget: 24 widget da accendere e ordinare, tessere compatte (mai, auto, sempre) e avvisi personalizzati che si aprono da soli quando si accendono.
+- Azioni rapide: popup delle luci (scelte o tutte), delle prese, del clima, dell'antifurto e della lavatrice, accendi/spegni, lettore multimediale, script e scene, con messaggio di conferma.
+- Backup: copia negli appunti e ripristino incollando il testo.
+
 ## 1.1.4
 - Dopo un aggiornamento la plancia mostra subito la versione nuova: il browser non riusa più i file vecchi rimasti in memoria.
 

@@ -517,8 +517,8 @@ function vSicurezza() {
   const serr = Object.keys(S.stati).filter((id) => dom(id) === "lock");
   const cam = Object.keys(S.stati).filter((id) => dom(id) === "camera" && visibileStanza(id));
   return `<div class="griglia" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr))">
-    <section class="card"><h2>Allarme</h2>${all.map((id) => { const v = st(id).state, cls = ["unavailable", "unknown"].includes(v) ? "" : v === "disarmed" ? "disarmed" : v === "triggered" ? "triggered" : "armed"; return `<div class="allarme-stato ${cls}" style="margin-bottom:12px">${ico("sicurezza", "l")}<div style="flex:1"><div class="dim" style="font-size:12px">${esc(nomeE(id))}</div><b>${testoAllarme(v)}</b></div></div>
-      <div class="riga" style="margin-bottom:16px">${["unavailable", "unknown"].includes(v) ? `<span class="dim">La centrale non risponde: controlla l'integrazione in Home Assistant.</span>` : v === "disarmed" ? `<button class="btn a" data-arma="alarm_arm_away" data-id="${id}">Inserisci totale</button><button class="btn p" data-arma="alarm_arm_home" data-id="${id}">In casa</button><button class="btn" data-arma="alarm_arm_night" data-id="${id}">Notte</button>` : `<button class="btn" data-arma="alarm_disarm" data-id="${id}">Disinserisci</button>`}</div>`; }).join("") || '<div class="dim">Nessuna centrale d\'allarme in Home Assistant.</div>'}
+    <section class="card"><h2>Allarme</h2>${extraAntifurto()}${all.map((id) => { const v = st(id).state, cls = ["unavailable", "unknown"].includes(v) ? "" : v === "disarmed" ? "disarmed" : v === "triggered" ? "triggered" : "armed"; return `<div class="allarme-stato ${cls}" style="margin-bottom:12px">${ico("sicurezza", "l")}<div style="flex:1"><div class="dim" style="font-size:12px">${esc(nomeE(id))}</div><b>${testoAllarme(v)}</b></div></div>
+      <div class="riga" style="margin-bottom:16px">${pulsantiAllarme(id)}</div>`; }).join("") || '<div class="dim">Nessuna centrale d\'allarme in Home Assistant.</div>'}
       ${per.length ? `<div class="gruppo">Sensori di sicurezza</div><div class="tessere">${per.map(tessera).join("")}</div>` : ""}
       ${serr.length ? `<div class="gruppo">Serrature</div><div class="tessere">${serr.map(tessera).join("")}</div>` : ""}
     </section>
@@ -918,7 +918,7 @@ async function carica() {
     const d = await api("api/stato");
     S.stati = Object.fromEntries(d.ha.stati.map((s) => [s.entity_id, s]));
     S.aree = d.ha.aree; S.dispositivi = d.ha.dispositivi; S.entita = d.ha.entita; ACCESSORI = null; S.haConfig = d.ha.config; S.servizi = d.ha.servizi;
-    S.cfg = d.config; S.diario = d.diario; S.collegato = d.collegato; S.tunnel = d.tunnel; S.versione = d.versione; S.aggiornamento = d.aggiornamento;
+    S.cfg = d.config; S.diario = d.diario; S.collegato = d.collegato; S.tunnel = d.tunnel; S.versione = d.versione; S.aggiornamento = d.aggiornamento; S.utente = d.utente; S.configuratore = d.configuratore;
     aggiornaStatoHa(); disegnaSchede(); disegna();
   } catch (e) {
     S.collegato = false; aggiornaStatoHa();
