@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.1.2";
+const VERSIONE = "1.1.3";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -41,7 +41,7 @@ const CONFIG_BASE = {
   energia: { solare: "", rete: "", batteria: "", batteria_livello: "", casa: "", contatore_kw: 3, differibili: [] },
   agente: { notifica: "", spegni_luci_uscita: false, avvisa_consumi: true, avvisa_finestre_pioggia: true },
   raccolta: { attiva: false, ora: "20:00", calendario: {} },   // calendario: {"1":"Organico", ...} giorno settimana 1-7 -> tipo (sera prima)
-  aspetto: { nome: "Casa", sottotitolo: "", tema: "scuro", accento: "#5AB0FF" },
+  aspetto: { nome_casa: "" },
   assist: { agente: "", voce: false, nascondi: false },
   personalizza: {},      // {entity_id: {nome, icona, gruppo}}
   sezioni_ordine: [],

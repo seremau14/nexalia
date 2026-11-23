@@ -242,12 +242,9 @@ function schedeAttive() {
   return ord.map((id) => SCHEDE.find((x) => x.id === id)).filter((s) => s.id === "impostazioni" || s.id === "agente" || (sez.includes(s.id) && (!s.completa || completa())));
 }
 function applicaAspetto() {
-  const a = (S.cfg && S.cfg.aspetto) || {};
+  const n = ((S.cfg && S.cfg.aspetto) || {}).nome_casa || "";
   const m = document.querySelector(".marchio");
-  if (m) m.innerHTML = `${ico("casa")}<span>${esc(a.nome || "Casa")}</span><b>·</b><em>${esc(a.sottotitolo || "Nexalia")}</em>`;
-  const chiaro = a.tema === "chiaro" || (a.tema === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches);
-  document.body.classList.toggle("chiaro", !!chiaro);
-  document.documentElement.style.setProperty("--blu", a.accento || "#5AB0FF");
+  if (m) m.innerHTML = `${ico("casa")}<span>Casa</span><b>·</b><em>Nexalia</em>${n ? `<i class="nome-casa">${esc(n)}</i>` : ""}`;
 }
 function disegnaSchede() {
   applicaAspetto();
@@ -626,7 +623,6 @@ function opzioniSensori(filtro, val) {
 }
 let pannello = localStorage.getItem("nx_pannello") || "generali", cercaEd = "", catEd = "tutte", entSel = null, cercaEnt = "", entIcona = null;
 const CAT_ED = { plancia: "Plancia", dispositivi: "Dispositivi", energia: "Energia", agente: "Agente", licenza: "Licenza", tutte: "Tutte" };
-const TEMI_ACC = ["#5AB0FF", "#4CC38A", "#FFB454", "#B48CFF", "#FF8A80", "#5EE1D6"];
 const GRUPPI_FORZATI = { "": "Automatico", luci: "Luce", prese: "Presa", interruttori: "Interruttore", multimedia: "Multimedia (non è luce né presa)", telecamere: "Accessorio di telecamera", sensori: "Sensore" };
 function pannelli() {
   const l = S.cfg.licenza, e = S.cfg.energia, a = S.cfg.agente, as = S.cfg.aspetto || {}, ass = S.cfg.assist || {};
@@ -637,16 +633,10 @@ function pannelli() {
   const agenti = Object.keys(S.stati).filter((id) => dom(id) === "conversation");
   const pers = S.cfg.personalizza || {};
   const P = {};
-  P.generali = { cat: "plancia", ic: "impostazioni", tit: "Generali", kw: "nome casa sottotitolo intestazione", html: () => `
-    <p class="mut">Il nome e la riga sotto compaiono in alto a sinistra nella plancia.</p>
-    <label class="campo">Nome della plancia<input type="text" id="edNome" maxlength="30" value="${esc(as.nome || "Casa")}"></label>
-    <label class="campo" style="margin-top:10px">Sottotitolo<span>Facoltativo, es. "Casa al mare"</span><input type="text" id="edSotto" maxlength="40" value="${esc(as.sottotitolo || "")}"></label>
+  P.generali = { cat: "plancia", ic: "impostazioni", tit: "Generali", kw: "nome casa intestazione", html: () => `
+    <p class="mut">In alto a sinistra resta sempre "Casa · Nexalia". Se vuoi, accanto compare anche il nome della tua casa.</p>
+    <label class="campo">Nome della casa<span>Facoltativo, es. "Casa al mare"</span><input type="text" id="edNome" maxlength="30" value="${esc(as.nome_casa || "")}"></label>
     <div class="riga" style="margin-top:12px"><button class="btn p" data-salva-generali>Salva</button></div>` };
-  P.tema = { cat: "plancia", ic: "occhio", tit: "Tema e colori", kw: "tema chiaro scuro colore accento aspetto", html: () => `
-    <div class="gruppo" style="margin-top:0">Aspetto</div>
-    <div class="scelte">${[["scuro", "Scuro"], ["chiaro", "Chiaro"], ["auto", "Automatico"]].map(([k, n]) => `<button class="${(as.tema || "scuro") === k ? "on" : ""}" data-tema="${k}">${n}</button>`).join("")}</div>
-    <div class="gruppo">Colore principale</div>
-    <div class="riga">${TEMI_ACC.map((c) => `<button class="colore ${(as.accento || TEMI_ACC[0]) === c ? "on" : ""}" style="background:${c}" data-accento="${c}" aria-label="Colore ${c}"></button>`).join("")}</div>` };
   P.home = { cat: "plancia", ic: "casa", tit: "Schermata principale", kw: "home riquadri widget preferiti ordine", html: () => `<p class="mut" style="margin-top:-6px">Scegli cosa vedere nella home e in che ordine. Il cerchio dell'agente c'è sempre.</p>
       ${ordineHome().map((k, i, a) => `<div class="voce-imp"><div><b>${RIQUADRI[k]}</b></div><button class="btn pic" data-su="${k}" ${i === 0 ? "disabled" : ""} aria-label="Sposta su">${ico("su", "s")}</button><button class="btn pic" data-giu="${k}" ${i === a.length - 1 ? "disabled" : ""} aria-label="Sposta giù">${ico("giu", "s")}</button><button class="tg ${S.cfg.home.riquadri.includes(k) ? "on" : ""}" data-riq="${k}" aria-label="Mostra ${RIQUADRI[k]}"></button></div>`).join("")}` };
   P.sezioni = { cat: "plancia", ic: "comandi", tit: "Sezioni", kw: "schede menu barra ordine", html: () => `<p class="mut">Accendi le sezioni che vuoi nella barra in alto e scegli l'ordine. Agente e Impostazioni ci sono sempre.</p>
@@ -847,9 +837,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.annullaEnt !== undefined) { entSel = null; entIcona = null; return disegna(); }
   if (d.resetEnt) { const p = { ...(S.cfg.personalizza || {}) }; delete p[d.resetEnt]; await salvaCfg({ personalizza: p }); ACCESSORI = null; entSel = null; return disegna(); }
-  if (d.salvaGenerali !== undefined) { await salvaCfg({ aspetto: { ...S.cfg.aspetto, nome: $("#edNome").value.trim().slice(0, 30) || "Casa", sottotitolo: $("#edSotto").value.trim().slice(0, 40) } }); applicaAspetto(); avviso("Salvato", "ok"); return; }
-  if (d.tema) { await salvaCfg({ aspetto: { ...S.cfg.aspetto, tema: d.tema } }); applicaAspetto(); return disegna(); }
-  if (d.accento) { await salvaCfg({ aspetto: { ...S.cfg.aspetto, accento: d.accento } }); applicaAspetto(); return disegna(); }
+  if (d.salvaGenerali !== undefined) { await salvaCfg({ aspetto: { nome_casa: $("#edNome").value.trim().slice(0, 30) } }); applicaAspetto(); avviso("Salvato", "ok"); return; }
   if (d.sezSu || d.sezGiu) { const o = ordineSezioni(), k = d.sezSu || d.sezGiu, i = o.indexOf(k), j = d.sezSu ? i - 1 : i + 1; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; await salvaCfg({ sezioni_ordine: o }); disegnaSchede(); return disegna(); }
   if (d.assist) { await salvaCfg({ assist: { ...S.cfg.assist, [d.assist]: !S.cfg.assist[d.assist] } }); return disegna(); }
   if (d.pref) { const p = S.cfg.home.preferiti || []; await salvaCfg({ home: { ...S.cfg.home, preferiti: p.includes(d.pref) ? p.filter((x) => x !== d.pref) : [...p, d.pref] } }); avviso(p.includes(d.pref) ? "Tolto dai preferiti" : "Aggiunto ai preferiti della home", "ok"); return disegna(); }

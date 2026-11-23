@@ -1,5 +1,9 @@
 # Novità
 
+## 1.1.3
+- In alto a sinistra resta sempre "Casa · Nexalia"; in Impostazioni › Generali puoi aggiungere accanto il nome della tua casa (facoltativo).
+- Tolta la scelta di tema e colori: la plancia mantiene i suoi colori originali.
+
 ## 1.1.2
 - Gli aggiornamenti di Nexalia compaiono subito in Impostazioni › Aggiornamenti di Home Assistant: quando esce una nuova versione Nexalia chiede a Home Assistant di ricontrollare l'archivio delle app invece di aspettare il controllo periodico.
 
@@ -8,8 +12,6 @@
 
 ## 1.1.0
 - Nuovo editor delle impostazioni: ricerca in tutte le impostazioni, filtri per categoria, menu laterale e pannelli (su telefono il menu diventa una barra scorrevole).
-- Generali: nome e sottotitolo della plancia in alto a sinistra.
-- Tema e colori: scuro, chiaro o automatico e colore principale a scelta.
 - Sezioni: accendi, spegni e riordina le sezioni della barra in alto.
 - Le tue entità: rinomina un dispositivo, cambiagli l'icona o di' a Nexalia cos'è davvero (luce, presa, interruttore, multimedia, accessorio di telecamera, sensore). Vale solo nella plancia.
 - Assist e voce: scegli quale assistente di Home Assistant usare, fai leggere le risposte ad alta voce o nascondi la casella "Chiedi a Nexalia".
