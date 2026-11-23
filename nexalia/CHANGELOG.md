@@ -1,5 +1,9 @@
 # Novità
 
+## 1.0.3
+- Quando esce una nuova versione, Nexalia lo segnala con una notifica in Home Assistant, un avviso in cima alla plancia e il pulsante Aggiorna.
+- Nuovo pulsante "Cerca aggiornamenti" in Impostazioni.
+
 ## 1.0.2
 - Promemoria e controlli dell'agente all'ora giusta: Nexalia ora usa il fuso orario di Home Assistant.
 - Allarme non disponibile mostrato come "Non disponibile".

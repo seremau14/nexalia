@@ -198,7 +198,8 @@ function disegna() {
   if (!S.cfg) return;
   const f = { agente: vAgente, stanze: vStanze, comandi: vComandi, casa3d: vCasa3d, energia: vEnergia, sicurezza: vSicurezza, persone: vPersone, scenari: vScenari, raccolta: vRaccolta, impostazioni: vImpostazioni }[S.scheda] || vAgente;
   const att = document.activeElement, idAtt = att && att.id;
-  $("#vista").innerHTML = f();
+  const agg = S.aggiornamento ? `<div class="agg"><div>${ico("agente")}<b>Nexalia ${esc(S.aggiornamento.versione)} è disponibile</b><span class="mut">Hai la ${esc(S.versione)}</span></div><button class="btn p pic" data-aggiorna="${esc(S.aggiornamento.link)}">Aggiorna</button></div>` : "";
+  $("#vista").innerHTML = agg + f();
   if (idAtt && document.getElementById(idAtt)) document.getElementById(idAtt).focus();
   if (S.scheda === "casa3d") dopoCasa3d();
   if (S.scheda === "energia") disegnaGrafico();
@@ -582,7 +583,7 @@ function vImpostazioni() {
       <p class="mut">Salva stanze, Casa 3D, scenari, impostazioni e raccolta in un file. Per passare a un altro mini PC: installa Nexalia e carica il backup.</p>
       ${completa() ? `<div class="riga"><a class="btn" href="api/backup" download>Scarica il backup</a><label class="btn">Ripristina da file<input type="file" id="fileBackup" accept="application/json" hidden></label></div>` : `<div class="dim">Incluso nella licenza completa.</div>`}
       <div class="gruppo">Informazioni</div>
-      <div class="mut" style="font-size:14px">Nexalia ${esc(S.versione)} · Home Assistant ${esc((S.haConfig && S.haConfig.versione) || "")} · ${S.collegato ? "collegato" : "non collegato"}<br>${Object.keys(S.stati).length} entità · ${S.aree.length} aree<br>Assistenza: <a href="mailto:info@nexaliahome.com">info@nexaliahome.com</a> · <a href="https://nexaliahome.com" target="_blank" rel="noopener">nexaliahome.com</a></div>
+      <div class="riga" style="margin-bottom:8px"><button class="btn pic" data-cerca-agg>Cerca aggiornamenti</button></div><div class="mut" style="font-size:14px">Nexalia ${esc(S.versione)} · Home Assistant ${esc((S.haConfig && S.haConfig.versione) || "")} · ${S.collegato ? "collegato" : "non collegato"}<br>${Object.keys(S.stati).length} entità · ${S.aree.length} aree<br>Assistenza: <a href="mailto:info@nexaliahome.com">info@nexaliahome.com</a> · <a href="https://nexaliahome.com" target="_blank" rel="noopener">nexaliahome.com</a></div>
     </section>
   </div>`;
 }
@@ -657,6 +658,8 @@ document.addEventListener("click", async (ev) => {
   if (d.sezione) { const s = S.cfg.sezioni || []; await salvaCfg({ sezioni: s.includes(d.sezione) ? s.filter((x) => x !== d.sezione) : [...s, d.sezione] }); disegnaSchede(); return disegna(); }
   if (d.differibili !== undefined) return scegliDifferibili();
   if (d.salvaDiff !== undefined) { const sc = [...document.querySelectorAll("#listaDiff input:checked")].map((i) => i.value); await salvaCfg({ energia: { ...S.cfg.energia, differibili: sc } }); return chiudiFinestra(); }
+  if (d.aggiorna) { try { window.top.location.href = d.aggiorna; } catch (e) { window.open(d.aggiorna, "_blank"); } return; }
+  if (d.cercaAgg !== undefined) { try { const r = await api("api/aggiornamenti", { metodo: "POST" }); S.aggiornamento = r.aggiornamento; avviso(r.aggiornamento ? "Nuova versione " + r.aggiornamento.versione + " disponibile" : "Hai già l'ultima versione", "ok"); disegna(); } catch (e) { avviso(e.message, "err"); } return; }
   if (d.verificaLic !== undefined) { try { const r = await api("api/licenza/verifica", { metodo: "POST" }); S.cfg = r.config; S.tunnel = r.tunnel; avviso("Licenza controllata", "ok"); disegna(); } catch (e) { avviso(e.message, "err"); } return; }
   if (d.disattivaLic !== undefined) { if (!confirm("Disattivare la licenza su questa casa? Nexalia torna alla versione gratuita qui e il codice si libera per un altro mini PC.")) return; try { await api("api/licenza/disattiva", { metodo: "POST" }); avviso("Licenza disattivata", "ok"); await carica(); } catch (e) { avviso(e.message, "err"); } return; }
 });
@@ -721,7 +724,7 @@ async function carica() {
     const d = await api("api/stato");
     S.stati = Object.fromEntries(d.ha.stati.map((s) => [s.entity_id, s]));
     S.aree = d.ha.aree; S.dispositivi = d.ha.dispositivi; S.entita = d.ha.entita; S.haConfig = d.ha.config; S.servizi = d.ha.servizi;
-    S.cfg = d.config; S.diario = d.diario; S.collegato = d.collegato; S.tunnel = d.tunnel; S.versione = d.versione;
+    S.cfg = d.config; S.diario = d.diario; S.collegato = d.collegato; S.tunnel = d.tunnel; S.versione = d.versione; S.aggiornamento = d.aggiornamento;
     aggiornaStatoHa(); disegnaSchede(); disegna();
   } catch (e) {
     S.collegato = false; aggiornaStatoHa();
@@ -735,6 +738,7 @@ function ascolta() {
   es.addEventListener("diario", (e) => { S.diario.unshift(JSON.parse(e.data)); ridisegna(); });
   es.addEventListener("config", (e) => { S.cfg = JSON.parse(e.data); disegnaSchede(); ridisegna(); });
   es.addEventListener("ricarica", () => carica());
+  es.addEventListener("aggiornamento", (e) => { S.aggiornamento = JSON.parse(e.data); ridisegna(); });
   es.onopen = () => { if (!S.collegato && S.cfg) carica(); };
   es.onerror = () => { S.collegato = false; aggiornaStatoHa(); };
 }

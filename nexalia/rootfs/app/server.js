@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.0.2";
+const VERSIONE = "1.0.3";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -345,6 +345,56 @@ async function verificaLicenza() {
 }
 setInterval(verificaLicenza, 6 * 3600000);
 
+// ---------------------------------------------------------------- aggiornamenti
+// Controlla su GitHub se c'è una versione nuova: la segnala con una notifica in Home Assistant e nella plancia,
+// e chiede al Supervisor di ricaricare lo store, così compare subito anche in Impostazioni › Aggiornamenti.
+const REPO_RAW = "https://raw.githubusercontent.com/seremau14/nexalia/main/nexalia/";
+let aggiornamento = null; // { versione, note, link }
+const piuNuova = (a, b) => { const x = String(a).split(".").map(Number), y = String(b).split(".").map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+async function supervisor(metodo, percorso) {
+  const r = await fetch("http://supervisor" + percorso, { method: metodo, headers: { authorization: "Bearer " + TOKEN } });
+  return r.ok ? r.json().catch(() => ({})) : null;
+}
+let slugApp = null;
+async function linkApp() {
+  if (!slugApp) { try { const d = await supervisor("GET", "/addons/self/info"); slugApp = d && d.data && d.data.slug; } catch (e) {} }
+  return slugApp ? "/config/app/" + slugApp + "/info" : "/config/apps/installed";
+}
+async function controllaAggiornamenti() {
+  try {
+    const cfgTxt = await (await fetch(REPO_RAW + "config.yaml", { headers: { "cache-control": "no-cache" } })).text();
+    const m = cfgTxt.match(/^version:\s*"?([0-9.]+)"?/m);
+    if (!m) return;
+    const nuova = m[1];
+    if (!piuNuova(nuova, VERSIONE)) {
+      aggiornamento = null;
+      if (config.avviso_aggiornamento) { delete config.avviso_aggiornamento; salva(); servizio("persistent_notification", "dismiss", { notification_id: "nexalia_aggiornamento" }).catch(() => {}); }
+      return;
+    }
+    let note = "";
+    try {
+      const ch = await (await fetch(REPO_RAW + "CHANGELOG.md")).text();
+      const blocco = ch.split(/^## /m).find((b) => b.startsWith(nuova));
+      if (blocco) note = blocco.split("\n").slice(1).join("\n").trim();
+    } catch (e) {}
+    const link = await linkApp();
+    aggiornamento = { versione: nuova, note, link };
+    inviaSSE("aggiornamento", aggiornamento);
+    supervisor("POST", "/store/reload").catch(() => {});
+    if (config.avviso_aggiornamento !== nuova) {
+      config.avviso_aggiornamento = nuova; salva();
+      await servizio("persistent_notification", "create", {
+        notification_id: "nexalia_aggiornamento",
+        title: "Nexalia " + nuova + " disponibile",
+        message: "È disponibile una nuova versione di Nexalia (tu hai la " + VERSIONE + ").\n\n" + (note ? note + "\n\n" : "") + "[Aggiorna ora](" + link + ")",
+      }).catch(() => {});
+      annota({ tipo: "info", icona: "agente", titolo: "Nexalia " + nuova + " è disponibile", testo: "Aggiornala da Impostazioni › Applicazioni › Nexalia." });
+    }
+  } catch (e) { /* GitHub non raggiungibile: riprovo più tardi */ }
+}
+setTimeout(controllaAggiornamenti, 90000);
+setInterval(controllaAggiornamenti, 6 * 3600000);
+
 // ---------------------------------------------------------------- contatore anonimo delle installazioni
 // Invia una volta al giorno solo: un codice casuale non riconducibile alla casa, la versione e se la licenza è completa.
 // Si disattiva dalle opzioni dell'app ("statistiche_anonime").
@@ -376,7 +426,7 @@ async function api(req, res, p) {
     return json(res, {
       versione: VERSIONE, collegato: ha.pronto,
       ha: { stati: Object.values(ha.stati), aree: ha.aree, dispositivi: ha.dispositivi, entita: ha.entita, config: ha.config, servizi: ha.servizi },
-      config: configPubblica(), diario, tunnel: tunnelStato,
+      config: configPubblica(), diario, tunnel: tunnelStato, aggiornamento,
     });
   }
   if (p === "/api/eventi") {
@@ -452,6 +502,7 @@ async function api(req, res, p) {
   if (p === "/api/licenza/attiva" && req.method === "POST") { const b = await corpo(req); const r = await attivaLicenza(b.codice); inviaSSE("config", configPubblica()); return json(res, r, r.ok ? 200 : 400); }
   if (p === "/api/licenza/disattiva" && req.method === "POST") { const r = await disattivaLicenza(); inviaSSE("config", configPubblica()); return json(res, r); }
   if (p === "/api/licenza/verifica" && req.method === "POST") { await verificaLicenza(); inviaSSE("config", configPubblica()); return json(res, { ok: true, config: configPubblica(), tunnel: tunnelStato }); }
+  if (p === "/api/aggiornamenti" && req.method === "POST") { await controllaAggiornamenti(); return json({ ok: true, aggiornamento }); }
   if (p === "/api/diario" && req.method === "DELETE") { diario.length = 0; return json(res, { ok: true }); }
   return json(res, { ok: false, errore: "Non trovato" }, 404);
 }
