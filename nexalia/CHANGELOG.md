@@ -1,5 +1,8 @@
 # Novità
 
+## 1.1.1
+- Testi di esempio dell'editor più generici.
+
 ## 1.1.0
 - Nuovo editor delle impostazioni: ricerca in tutte le impostazioni, filtri per categoria, menu laterale e pannelli (su telefono il menu diventa una barra scorrevole).
 - Generali: nome e sottotitolo della plancia in alto a sinistra.

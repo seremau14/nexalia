@@ -640,7 +640,7 @@ function pannelli() {
   P.generali = { cat: "plancia", ic: "impostazioni", tit: "Generali", kw: "nome casa sottotitolo intestazione", html: () => `
     <p class="mut">Il nome e la riga sotto compaiono in alto a sinistra nella plancia.</p>
     <label class="campo">Nome della plancia<input type="text" id="edNome" maxlength="30" value="${esc(as.nome || "Casa")}"></label>
-    <label class="campo" style="margin-top:10px">Sottotitolo<span>Facoltativo, es. "Casa Sinisi"</span><input type="text" id="edSotto" maxlength="40" value="${esc(as.sottotitolo || "")}"></label>
+    <label class="campo" style="margin-top:10px">Sottotitolo<span>Facoltativo, es. "Casa al mare"</span><input type="text" id="edSotto" maxlength="40" value="${esc(as.sottotitolo || "")}"></label>
     <div class="riga" style="margin-top:12px"><button class="btn p" data-salva-generali>Salva</button></div>` };
   P.tema = { cat: "plancia", ic: "occhio", tit: "Tema e colori", kw: "tema chiaro scuro colore accento aspetto", html: () => `
     <div class="gruppo" style="margin-top:0">Aspetto</div>
