@@ -1,0 +1,4 @@
+configuration:
+  statistiche_anonime:
+    name: Statistiche anonime
+    description: Invia una volta al giorno un codice casuale e la versione, per contare quante case usano Nexalia. Nessun dato della casa.

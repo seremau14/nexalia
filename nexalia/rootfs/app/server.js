@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.0.0";
+const VERSIONE = "1.0.1";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -334,6 +334,20 @@ async function verificaLicenza() {
   }
 }
 setInterval(verificaLicenza, 6 * 3600000);
+
+// ---------------------------------------------------------------- contatore anonimo delle installazioni
+// Invia una volta al giorno solo: un codice casuale non riconducibile alla casa, la versione e se la licenza è completa.
+// Si disattiva dalle opzioni dell'app ("statistiche_anonime").
+function statisticheAttive() {
+  try { const o = JSON.parse(fs.readFileSync(path.join(DATI, "options.json"), "utf8")); return o.statistiche_anonime !== false; } catch (e) { return true; }
+}
+async function contaInstallazione() {
+  if (!statisticheAttive()) return;
+  const id = crypto.createHash("sha256").update("nexalia-installazione:" + config.id_casa).digest("hex");
+  try { await chiamaLicenze("/api/ping", { id, versione: VERSIONE, completa: completa() }); } catch (e) {}
+}
+setTimeout(contaInstallazione, 60000);
+setInterval(contaInstallazione, 24 * 3600000);
 
 // ---------------------------------------------------------------- server web
 const TIPI = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp", ".json": "application/json", ".woff2": "font/woff2", ".ico": "image/x-icon" };

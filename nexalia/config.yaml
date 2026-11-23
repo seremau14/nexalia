@@ -1,5 +1,5 @@
 name: Nexalia
-version: "1.0.0"
+version: "1.0.1"
 slug: nexalia
 description: Plancia con agente AI per Home Assistant, con accesso da fuori casa
 url: https://nexaliahome.com
@@ -18,3 +18,7 @@ panel_title: Nexalia
 homeassistant_api: true
 hassio_api: false
 auth_api: false
+options:
+  statistiche_anonime: true
+schema:
+  statistiche_anonime: bool

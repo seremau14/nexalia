@@ -1,0 +1,4 @@
+configuration:
+  statistiche_anonime:
+    name: Anonymous statistics
+    description: Sends a random code and the version once a day to count how many homes use Nexalia. No home data.

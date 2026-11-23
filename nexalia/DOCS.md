@@ -59,6 +59,16 @@ Per entrare da fuori apri l'indirizzo che trovi in **Impostazioni › Licenza** 
 2. Installa Nexalia sul nuovo mini PC e inserisci lo stesso codice.
 3. Con **Backup e ripristino** ritrovi stanze, Casa 3D, scenari e impostazioni.
 
+## Statistiche anonime
+
+Una volta al giorno Nexalia comunica al server licenze soltanto:
+
+- un codice casuale, che non permette di risalire alla casa;
+- la versione installata;
+- se la licenza è completa.
+
+Non invia dati dei dispositivi, delle persone, della posizione o dell'uso della plancia. Serve solo a sapere quante case usano Nexalia. Per disattivarlo apri la scheda **Configurazione** dell'app e spegni **statistiche_anonime**.
+
 ## Assistenza
 
 Scrivi a info@nexaliahome.com.
