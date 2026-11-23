@@ -1,5 +1,8 @@
 # Novità
 
+## 1.1.2
+- Gli aggiornamenti di Nexalia compaiono subito in Impostazioni › Aggiornamenti di Home Assistant: quando esce una nuova versione Nexalia chiede a Home Assistant di ricontrollare l'archivio delle app invece di aspettare il controllo periodico.
+
 ## 1.1.1
 - Testi di esempio dell'editor più generici.
 
