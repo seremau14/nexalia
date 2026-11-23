@@ -365,22 +365,21 @@ function stanzeHome() { const sh = (S.cfg.home || {}).stanze_home || []; const s
 stanze = function () { return inHome ? stanzeHome() : _stanze0(); };
 
 // ------------------------------------------------------------------ Impostazioni: utente, chiosco, intestazione, manutenzione
-function applicaChiosco() {
-  const on = localStorage.getItem("nx_chiosco") === "1";
+function applicaChiosco(forza) {
+  const on = forza === undefined ? localStorage.getItem("nx_chiosco") === "1" : forza;
   try {
     const ha = window.parent.document.querySelector("home-assistant");
     const main = ha && ha.shadowRoot && ha.shadowRoot.querySelector("home-assistant-main");
     const r = main && main.shadowRoot; if (!r) return;
     let s = r.getElementById("nx-chiosco");
-    if (on && !s) { s = document.createElement("style"); s.id = "nx-chiosco"; s.textContent = "ha-sidebar{display:none!important}ha-drawer{--mdc-drawer-width:0px!important}"; r.appendChild(s); }
+    if (on && !s) { s = document.createElement("style"); s.id = "nx-chiosco"; s.textContent = ":host{--ha-sidebar-width:0px!important;--ha-top-app-bar-width:100%!important;--mdc-drawer-width:0px!important}ha-sidebar{display:none!important}"; r.appendChild(s); }
     if (!on && s) s.remove();
-    const drawer = r.querySelector("ha-drawer"); const aside = drawer && drawer.shadowRoot && drawer.shadowRoot.querySelector("aside");
-    if (aside) aside.style.display = on ? "none" : "";
-    const cont = drawer && drawer.shadowRoot && drawer.shadowRoot.querySelector(".mdc-drawer-app-content");
-    if (cont) cont.style.marginLeft = on ? "0" : "";
+    const dr = r.querySelector("ha-drawer"), dsr = dr && dr.shadowRoot;
+    if (dsr) for (const el of dsr.querySelectorAll(".sidebar-shell,aside")) el.style.display = on ? "none" : "";
   } catch (e) {}
 }
-window.addEventListener("pagehide", () => { if (localStorage.getItem("nx_chiosco") === "1") { localStorage.setItem("nx_chiosco", "1"); try { const r = window.parent.document.querySelector("home-assistant").shadowRoot.querySelector("home-assistant-main").shadowRoot; const s = r.getElementById("nx-chiosco"); if (s) s.remove(); const d = r.querySelector("ha-drawer"); const a = d.shadowRoot.querySelector("aside"); if (a) a.style.display = ""; const c = d.shadowRoot.querySelector(".mdc-drawer-app-content"); if (c) c.style.marginLeft = ""; } catch (e) {} } });
+// uscendo dalla plancia la barra laterale di Home Assistant torna com'era
+window.addEventListener("pagehide", () => applicaChiosco(false));
 function applicaGenerali() {
   const g = S.cfg.generali || {}, c = (S.cfg.widget || {}).compatte || "auto";
   document.body.classList.toggle("barra-libera", g.intestazione_fissa === false);

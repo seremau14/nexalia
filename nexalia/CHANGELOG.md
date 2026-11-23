@@ -1,5 +1,8 @@
 # Novità
 
+## 1.2.1
+- Modo chiosco: la plancia occupa davvero tutto lo schermo anche con Home Assistant 2026 (prima restava una striscia vuota a sinistra).
+
 ## 1.2.0
 - Impostazioni: utente amministratore (solo lui vede e cambia le impostazioni), modo chiosco senza la barra laterale di Home Assistant, intestazione fissa, assistente e voce, sezioni e ordine della barra, diagnosi, autorilevamento e reset totale.
 - Home a blocchi in ordine libero: intestazione col meteo, pastiglie di stato, agente, stanze, dispositivi, cosa è successo, persone, widget, azioni rapide e i riquadri di prima.
