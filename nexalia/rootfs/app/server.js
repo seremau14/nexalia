@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.7.1";
+const VERSIONE = "1.7.2";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -42,7 +42,7 @@ const CONFIG_BASE = {
   agente: { notifica: "", spegni_luci_uscita: false, avvisa_consumi: true, avvisa_finestre_pioggia: true },
   raccolta: { attiva: false, ora: "20:00", calendario: {} },   // calendario: {"1":"Organico", ...} giorno settimana 1-7 -> tipo (sera prima)
   aspetto: { nome_casa: "" },
-  assist: { agente: "", voce: false, nascondi: false, tts_motore: "", tts_voce: "", personalita: "", prompt: "" }, // voce di Home Assistant (Piper, cloud…) e carattere dell'assistente AI
+  assist: { agente: "", voce: false, nascondi: false, tts_motore: "", tts_voce: "", altoparlante: "", personalita: "", prompt: "" }, // voce di Home Assistant (Piper, cloud…) e carattere dell'assistente AI
   personalizza: {},      // {entity_id: {nome, icona, gruppo}}
   sezioni_ordine: [],
   generali: { admin: "", intestazione_fissa: true },
@@ -606,6 +606,11 @@ async function api(req, res, p) {
     if (!motore) return json(res, { ok: false, errore: "Nessuna voce di Home Assistant scelta" }, 400);
     const voce = String(b.voce !== undefined ? b.voce : a.tts_voce || "");
     const lingua = String(b.lingua || "") || undefined;
+    const alto = b.qui ? "" : String(b.altoparlante !== undefined ? b.altoparlante : a.altoparlante || "");
+    if (/^media_player\.[a-z0-9_]+$/.test(alto)) { // parla da un altoparlante di casa invece che dall'apparecchio
+      await servizio("tts", "speak", { entity_id: motore, media_player_entity_id: alto, message: String(b.testo || "").slice(0, 600), language: lingua, options: voce ? { voice: voce } : undefined });
+      return json(res, { ok: true, altoparlante: alto });
+    }
     const r = await haRest("POST", "/api/tts_get_url", { engine_id: motore, message: String(b.testo || "").slice(0, 600), language: lingua, options: voce ? { voice: voce } : undefined });
     const audio = await fetch(HA_HTTP + r.path, { headers: { authorization: "Bearer " + TOKEN } });
     if (!audio.ok) return json(res, { ok: false, errore: "Audio non disponibile" }, 502);

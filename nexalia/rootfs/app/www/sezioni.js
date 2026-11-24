@@ -949,6 +949,7 @@ function htmlVoceCarattere() {
   const m = vociHA.find((x) => x.id === a.tts_motore), stile = a.personalita || "", testo = promptBozza !== null ? promptBozza : (a.prompt || (PERSONALITA[stile] || [])[2] || "");
   return `<label class="campo">Voce della risposta<span>«Del dispositivo» usa la voce del telefono o del PC. Con una voce di Home Assistant (Piper, cloud…) la plancia parla uguale su tutti gli apparecchi.</span><select id="nxTtsMotore"><option value="">Del dispositivo</option>${vociHA.map((x) => `<option value="${esc(x.id)}" ${a.tts_motore === x.id ? "selected" : ""}>${esc(x.nome)}</option>`).join("")}</select></label>
     ${m && m.voci.length ? `<label class="campo">Voce<select id="nxTtsVoce"><option value="">Predefinita</option>${m.voci.map((v) => `<option value="${esc(v.id)}" data-lingua="${esc(v.lingua)}" ${a.tts_voce === v.id ? "selected" : ""}>${esc(v.nome)}</option>`).join("")}</select></label>` : ""}
+    ${a.tts_motore ? `<label class="campo">Dove parla<span>Questo apparecchio, oppure un altoparlante di casa (Echo, Google, Sonos…)</span><select id="nxAltoparlante"><option value="">Questo apparecchio</option>${tutteId().filter((id) => dom(id) === "media_player").map((id) => `<option value="${id}" ${a.altoparlante === id ? "selected" : ""}>${esc(nomeE(id))}</option>`).join("")}</select></label>` : ""}
     <div class="riga" style="margin-top:6px"><button class="btn pic" data-nx-prova-voce>${ico("play", "s")}Prova la voce</button></div>
     <div class="gruppo">Carattere dell'assistente AI</div>
     <p class="mut" style="margin-top:0">Vale per l'assistente AI scelto qui sopra (Claude, ChatGPT, Gemini…). Nexalia scrive queste istruzioni direttamente nell'assistente di Home Assistant, così valgono anche quando gli parli dal telefono o da un altoparlante.</p>
@@ -966,9 +967,16 @@ let audioNx = null;
 async function parlaHA(t, motore, voce, lingua) {
   const r = await fetch("api/parla", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ testo: t, motore, voce, lingua }) });
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).errore || "Voce non disponibile");
+  if ((r.headers.get("content-type") || "").includes("json")) return; // ha parlato un altoparlante di casa
   const url = URL.createObjectURL(await r.blob());
-  if (audioNx) audioNx.pause(); audioNx = new Audio(url); await audioNx.play();
+  if (!audioNx) audioNx = new Audio();
+  audioNx.pause(); audioNx.src = url; audioNx.muted = false; audioNx.volume = 1; await audioNx.play();
 }
+// telefoni, app di Home Assistant e Safari suonano solo se l'audio parte durante un tocco: lo "sblocco" subito, poi la risposta arriva dopo
+const SILENZIO = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//WreyTRUoAWgBgkOAGbZHBgG1OF6zM82DWbZaUmMBptgQhGjsyYqc9ae9XFz280948NMBWInljyzsNRFLPWdnZGWrddDsjK1unuSrVN9jJsK8KuQtQCtMBjCEtImISdNKJOopIpBFpNSMbIHCSRpRR5iakjTiyzLhchUUBwCgyKiweBv/7UsQbg8isVNoMPMjAAAA0gAAABEVFGmgqK////9bP/6XCykxBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+function sbloccaAudio() { try { if (!audioNx) audioNx = new Audio(); audioNx.src = SILENZIO; const p = audioNx.play(); if (p) p.catch(() => {}); } catch (e) {} }
+document.addEventListener("submit", (ev) => { if (ev.target.id === "formAssist" && (S.cfg.assist || {}).voce && (S.cfg.assist || {}).tts_motore) sbloccaAudio(); }, true);
+document.addEventListener("click", (ev) => { if (ev.target.closest("[data-nx-prova-voce]")) sbloccaAudio(); }, true);
 const linguaVoce = () => { const a = S.cfg.assist || {}, m = (vociHA || []).find((x) => x.id === a.tts_motore), v = m && m.voci.find((x) => x.id === a.tts_voce); return v ? v.lingua : undefined; };
 const _parla0 = parla;
 parla = function (t) {
@@ -981,6 +989,7 @@ document.addEventListener("change", async (ev) => {
   const t = ev.target;
   if (t.id === "nxTtsMotore") { await salvaCfg({ assist: { ...S.cfg.assist, tts_motore: t.value, tts_voce: "" } }); return disegna(); }
   if (t.id === "nxTtsVoce") { await salvaCfg({ assist: { ...S.cfg.assist, tts_voce: t.value } }); return; }
+  if (t.id === "nxAltoparlante") { await salvaCfg({ assist: { ...S.cfg.assist, altoparlante: t.value } }); return; }
 });
 document.addEventListener("input", (ev) => { if (ev.target.id === "nxPrompt") promptBozza = ev.target.value; });
 document.addEventListener("click", async (ev) => {
