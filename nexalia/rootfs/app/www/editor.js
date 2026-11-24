@@ -216,7 +216,7 @@ function calcolaWidget(k) {
     case "fumo": { const a = ids((id) => dom(id) === "binary_sensor" && ["smoke", "gas", "carbon_monoxide"].includes(attr(id, "device_class"))); const on = a.filter((id) => st(id).state === "on"); return { v: on.length ? "ALLARME" : "Tutto ok", sub: a.length + " rilevatori", att: on.length > 0, ids: a }; }
     case "meteo": { const m = datiMeteo(); return { v: m.temp != null ? fmt1(m.temp) + "°" : "—", sub: m.cond ? METEO[m.cond] || m.cond : "meteo non configurato" }; }
     case "agenda": { const c = ids((id) => dom(id) === "calendar"); const pross = c.map((id) => ({ id, t: attr(id, "start_time"), m: attr(id, "message") })).filter((x) => x.t && x.m).sort((a, b) => String(a.t).localeCompare(String(b.t)))[0]; return { v: pross ? pross.m : "Niente in vista", sub: pross ? new Date(String(pross.t).replace(" ", "T")).toLocaleString("it-IT", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : c.length + " calendari", ids: c }; }
-    case "non_connessi": { const n = ids((id) => DOMINI_UTILI.includes(dom(id)) && st(id).state === "unavailable" && !(S.cfg.nascoste || []).includes(id) && !accessorio(id)); return { v: String(n.length), sub: n.length ? "non rispondono" : "tutti in linea", att: n.length > 0, ids: n }; }
+    case "non_connessi": { const n = ids((id) => DOMINI_UTILI.includes(dom(id)) && st(id).state === "unavailable" && !(S.cfg.nascoste || []).includes(id) && !accessorio(id)); const nd = typeof perDispositivo === "function" ? perDispositivo(n).length : n.length; return { v: String(nd), sub: nd ? (nd === 1 ? "dispositivo non risponde" : "dispositivi non rispondono") : "tutti in linea", att: nd > 0, vai: "non_connessi" }; }
   }
   return { v: "—", sub: "" };
 }
@@ -234,7 +234,8 @@ function apriWidget(k) {
     const acc = avvisiAccesi();
     return apriPopup(() => `<div class="tit"><h2>${d.nome}</h2><button class="btn pic" data-chiudi aria-label="Chiudi">${ico("chiudi", "s")}</button></div>${acc.length ? acc.map((x) => `<div class="gruppo">${esc(x.a.icona || "⚠️")} ${esc(x.a.nome || "Avviso")}</div><div class="tessere">${x.ids.map(tessera).join("")}</div>`).join("") : '<p class="mut">Nessun avviso acceso. Li crei in Impostazioni › Widget.</p>'}`);
   }
-  if (!c.ids || !c.ids.length) { if (vai2) return vai(vai2); return; }
+  if (k === "non_connessi" && typeof vistaNonConnessi === "function") return apriPopup(() => `<div class="tit"><h2>${d.nome}</h2><button class="btn pic" data-chiudi aria-label="Chiudi">${ico("chiudi", "s")}</button></div>${vistaNonConnessi(entitaGen("non_connessi"))}`);
+  if (!c.ids || !c.ids.length) { if (vai2 && schedeAttive().some((x) => x.id === vai2)) return vai(vai2); return; }
   apriPopup(() => { const cc = calcolaWidget(k); return `<div class="tit"><h2>${d.nome}</h2><button class="btn pic" data-chiudi aria-label="Chiudi">${ico("chiudi", "s")}</button></div><div class="tessere">${(cc.ids || []).map(tessera).join("")}</div>${vai2 ? `<div class="riga" style="margin-top:14px"><span class="spazio"></span><button class="btn pic" data-nx-vai="${vai2}">Apri la sezione</button></div>` : ""}`; });
 }
 // popup che si aggiorna con gli stati

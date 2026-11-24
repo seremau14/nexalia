@@ -1,5 +1,9 @@
 # Novità
 
+## 1.3.2
+- Dispositivi non connessi contati per dispositivo (non per singola entità), con marca, modello, stanza e da quando non rispondono.
+- Apri porte e cancelli: niente più falsi riconoscimenti come la "echo cancellation" degli Echo.
+
 ## 1.3.1
 - Riconoscimento più preciso: le entità di Echo, altoparlanti e telecamere non finiscono più in Veicoli, UPS, Animali o MiniPC, e la stampante non finisce più in Salute.
 

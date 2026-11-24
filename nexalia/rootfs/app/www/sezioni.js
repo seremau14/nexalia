@@ -46,6 +46,9 @@ function eDiMedia(id) {
   return !!(e && e.dispositivo && devMedia.has(e.dispositivo));
 }
 const SEZ_MEDIA_OK = ["musica", "alexa", "citofono", "temperatura", "non_connessi"];
+function okAuto(sez, x) {
+  try { return SEZ_GEN[sez].auto(x) && nonNasc(x) && (SEZ_MEDIA_OK.includes(sez) || (!eDiMedia(x) && !/\becho\b|alexa|google.?home|nest.?(hub|mini|audio)|sonos|homepod/.test(testoE(x)))); } catch (e) { return false; }
+}
 const SEZ_GEN = {
   // Energia
   accumulo: { cat: "energia", nome: "Batteria di accumulo", ic: "batteria", auto: (id) => ["sensor", "binary_sensor"].includes(dom(id)) && /accumul|storage|luna2000|powerwall|battery_soc|batteria_(casa|accumulo)|home_battery|bms/.test(testoE(id)),
@@ -84,7 +87,7 @@ const SEZ_GEN = {
   // Sicurezza
   varchi: { cat: "sicurezza", nome: "Varchi", ic: "porte", auto: (id) => eApertura(id), perStanza: true },
   presenza: { cat: "sicurezza", nome: "Presenza", ic: "movimento", auto: (id) => dom(id) === "binary_sensor" && ["motion", "occupancy", "presence"].includes(dc(id)) && !accessorio(id), perStanza: true },
-  apri_porte: { cat: "sicurezza", nome: "Apri porte e cancelli", ic: "cancello", auto: (id) => dom(id) === "lock" || (dom(id) === "cover" && ["gate", "garage", "door"].includes(dc(id))) || (["button", "switch", "script"].includes(dom(id)) && /cancell|gate|portone|garage|apriport|apri.?porta|serratura|basculante|pedonale/.test(testoE(id))) },
+  apri_porte: { cat: "sicurezza", nome: "Apri porte e cancelli", ic: "cancello", auto: (id) => dom(id) === "lock" || (dom(id) === "cover" && ["gate", "garage", "door"].includes(dc(id))) || (["button", "switch", "script"].includes(dom(id)) && /cancell[oi]|\bgate\b|portone|garage|apriport|apri.?porta|serratura|basculante|pedonale/.test(testoE(id))) },
   citofono: { cat: "sicurezza", nome: "Citofono e posta", ic: "campanello", auto: (id) => /citofon|doorbell|campanell|intercom|videocitofono|posta|mailbox|cassetta/.test(testoE(id)) && dom(id) !== "update",
     campi: [["campanello", "Campanello (quando suonano)", "sensore"], ["telecamera", "Telecamera dell'ingresso", "tutte"], ["apri", "Tasto per aprire", "comando"], ["posta", "Sensore della cassetta della posta", "binario"]] },
   // Avvisi
@@ -108,7 +111,7 @@ function entitaGen(id) {
   const m = miaSez(id); if (m) return (m.entita || []).filter((x) => st(x));
   const d = SEZ_GEN[id], c = cfgGen(id);
   const esc_ = c.escluse || [];
-  const auto = tutteId().filter((x) => { try { return d.auto(x) && nonNasc(x) && (SEZ_MEDIA_OK.includes(id) || !eDiMedia(x)); } catch (e) { return false; } });
+  const auto = tutteId().filter((x) => okAuto(id, x));
   const campi = Object.values(c.campi || {}).filter((x) => x && st(x));
   return [...new Set([...campi, ...auto, ...(c.aggiunte || []).filter((x) => st(x))])].filter((x) => !esc_.includes(x) || campi.includes(x));
 }
@@ -125,12 +128,22 @@ function vGen(id) {
   if (d.radio) h += vistaRadio(id);
   else if (d.agenda) h += vistaAgenda(ents);
   else if (d.batterie) h += vistaBatterie(ents);
-  else if (d.nonConnessi) h += ents.length ? `<table>${ents.map((e) => `<tr><td>${ico(iconaE(e), "s")} ${esc(nomeE(e))}<div class="dim" style="font-size:12px">${esc(e)} · ${esc(nomeAreaDi(e))}</div></td><td class="dim">da ${esc(new Date(st(e).last_changed).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</td></tr>`).join("")}</table>` : '<p class="mut">Tutti i dispositivi rispondono.</p>';
+  else if (d.nonConnessi) h += vistaNonConnessi(ents);
   else if (id === "meteo") h += vistaMeteo(ents, c);
   else if (!ents.length) h += `<p class="mut">Non ho trovato niente per questa sezione. Puoi aggiungere le entità in Impostazioni › ${esc(d.nome)}.</p>`;
   else if (d.perStanza) { const g = {}; for (const e of ents) (g[nomeAreaDi(e)] = g[nomeAreaDi(e)] || []).push(e); h += Object.entries(g).sort((a, b) => (a[0] === "Senza stanza") - (b[0] === "Senza stanza") || a[0].localeCompare(b[0])).map(([a, l]) => `<div class="gruppo">${esc(a)}</div><div class="tessere">${l.map(tessera).join("")}</div>`).join(""); }
   else h += `<div class="tessere">${ents.map(tessera).join("")}</div>`;
   return h + `</section>`;
+}
+function perDispositivo(ents) {
+  const g = new Map();
+  for (const e of ents) { const en = S.entita.find((x) => x.id === e), dv = en && en.dispositivo && (S.dispositivi || []).find((x) => x.id === en.dispositivo); const k = dv ? dv.id : e; if (!g.has(k)) g.set(k, { nome: dv ? dv.nome || nomeE(e) : nomeE(e), modello: dv ? [dv.produttore, dv.modello].filter(Boolean).join(" ") : e, ents: [], area: nomeAreaDi(e) }); g.get(k).ents.push(e); }
+  return [...g.values()];
+}
+function vistaNonConnessi(ents) {
+  const dv = perDispositivo(ents).sort((a, b) => Math.min(...b.ents.map((e) => new Date(st(e).last_changed))) - Math.min(...a.ents.map((e) => new Date(st(e).last_changed))));
+  if (!dv.length) return '<p class="mut">Tutti i dispositivi rispondono.</p>';
+  return `<p class="mut">${dv.length} ${dv.length === 1 ? "dispositivo non risponde" : "dispositivi non rispondono"} (${ents.length} entità).</p><table>${dv.map((x) => { const da = new Date(Math.min(...x.ents.map((e) => new Date(st(e).last_changed)))); return `<tr><td><b>${esc(x.nome)}</b><div class="dim" style="font-size:12px">${esc(x.modello)} · ${esc(x.area)} · ${x.ents.length} entità</div></td><td class="dim" style="white-space:nowrap">da ${esc(da.toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</td></tr>`; }).join("")}</table>`;
 }
 function vistaMeteo(ents, c) {
   const w = (c.campi || {}).meteo && st(c.campi.meteo) ? c.campi.meteo : ents.find((e) => dom(e) === "weather");
@@ -209,7 +222,7 @@ let nuovaMia = { nome: "", icona: "stella" };
 const visTg = (id) => interruttore((S.cfg.sezioni || []).includes(id), `data-sezione="${id}"`, "Sezione visibile nella plancia", "Accesa, la sezione compare nella barra in alto");
 function pannelloGen(id) {
   const d = SEZ_GEN[id], c = cfgGen(id);
-  const auto = tutteId().filter((x) => { try { return d.auto(x) && nonNasc(x) && (SEZ_MEDIA_OK.includes(id) || !eDiMedia(x)); } catch (e) { return false; } }).sort();
+  const auto = tutteId().filter((x) => okAuto(id, x)).sort();
   const escl = c.escluse || [], agg = (c.aggiunte || []);
   const filtri = [...new Set((d.campi || []).map((x) => x[2]))];
   return `${filtri.map(datalist).join("")}${datalist("tutte")}
