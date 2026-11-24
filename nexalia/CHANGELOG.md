@@ -1,5 +1,8 @@
 # Novità
 
+## 1.7.3
+- Impostazioni: nuovo interruttore "Nexalia come schermata iniziale per tutti". Aprendo Home Assistant parte subito Nexalia per tutti gli utenti.
+
 ## 1.7.2
 - Voce: sui telefoni e nell'app di Home Assistant la risposta ora si sente (l'audio viene sbloccato al tocco su "Invia").
 - Nuova opzione "Dove parla": questo apparecchio oppure un altoparlante di casa (Echo, Google, Sonos…).

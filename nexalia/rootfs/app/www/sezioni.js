@@ -1010,3 +1010,36 @@ document.addEventListener("click", async (ev) => {
   }
 });
 function _parla0Forzata(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = "it-IT"; speechSynthesis.speak(u); } catch (e) {} }
+
+// ================================================================== Nexalia plancia predefinita di Home Assistant
+let predefinita = null; // null = non ancora letto
+const haPadre = () => { try { const h = window.parent.document.querySelector("home-assistant"); return h && h.hass; } catch (e) { return null; } };
+const pannelloNx = () => { try { return window.parent.location.pathname.split("/")[1] || ""; } catch (e) { return ""; } };
+async function leggiPredefinita() {
+  const h = haPadre(); if (!h) { predefinita = "nd"; return; }
+  try { const s = (await h.callWS({ type: "frontend/get_system_data", key: "core" })).value || {}; predefinita = s.default_panel === pannelloNx() ? "si" : "no"; } catch (e) { predefinita = "nd"; }
+  if (pannello === "generali" && S.scheda === "impostazioni") disegna();
+}
+function htmlPredefinita() {
+  if (predefinita === null) { predefinita = "..."; leggiPredefinita(); }
+  if (predefinita === "nd" || !pannelloNx()) return "";
+  return interruttore(predefinita === "si", "data-nx-predefinita", "Nexalia come schermata iniziale per tutti", "Aprendo Home Assistant (PC, telefono, tablet, Echo) parte subito Nexalia, per tutti gli utenti di casa. Spenta, torna la dashboard di Home Assistant.");
+}
+const _pannelliPred = pannelli;
+pannelli = function () {
+  const P = _pannelliPred();
+  if (P.generali) { const h = P.generali.html; P.generali = { ...P.generali, kw: P.generali.kw + " predefinita schermata iniziale dashboard default", html: () => h().replace('<div class="gruppo">Assistente', htmlPredefinita() + '<div class="gruppo">Assistente') }; }
+  return P;
+};
+document.addEventListener("click", async (ev) => {
+  const t = ev.target.closest("[data-nx-predefinita]"); if (!t) return;
+  const h = haPadre(); if (!h) return avviso("Apri Nexalia dal menu di Home Assistant", "err");
+  try {
+    const s = (await h.callWS({ type: "frontend/get_system_data", key: "core" })).value || {};
+    const acceso = predefinita === "si";
+    const nuovo = { ...s }; if (acceso) delete nuovo.default_panel; else nuovo.default_panel = pannelloNx();
+    await h.callWS({ type: "frontend/set_system_data", key: "core", value: nuovo });
+    predefinita = acceso ? "no" : "si"; avviso(acceso ? "Schermata iniziale: dashboard di Home Assistant" : "Nexalia è la schermata iniziale per tutti", "ok");
+  } catch (e) { avviso("Serve un utente amministratore di Home Assistant", "err"); }
+  disegna();
+});
