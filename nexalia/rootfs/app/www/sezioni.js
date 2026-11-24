@@ -656,3 +656,206 @@ document.addEventListener("click", async (ev) => {
 });
 function leggiAvvA() { const v = (id) => ($(id) ? $(id).value.trim() : null); if (v("#nxAvvATesto") !== null) nuovoAvvA.testo = v("#nxAvvATesto"); if (v("#nxAvvAOra") !== null) nuovoAvvA.ora = v("#nxAvvAOra"); if (v("#nxAvvAEnt") !== null) nuovoAvvA.entita = v("#nxAvvAEnt"); if (v("#nxAvvAVal") !== null) nuovoAvvA.valore = v("#nxAvvAVal") || "on"; }
 document.addEventListener("input", (ev) => { if (ev.target.id === "nxCercaNC") { cercaNC = ev.target.value; disegna(); } });
+
+// ================================================================== Stanze e Le tue entità (come GdAHome)
+Object.assign(IC, {
+  divano: "M4 11V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3M3 11a2 2 0 0 1 2 2v2h14v-2a2 2 0 1 1 2 2v3H3v-3a2 2 0 0 1 0-4zM6 18v2M18 18v2",
+  letto: "M3 18V7M3 13h18v5M21 18v-3a2 2 0 0 0-2-2h-8v5M7 11a1.5 1.5 0 1 0 0-.1",
+  fornello: "M5 3h14v18H5zM5 8h14M9 5.5h.01M12 5.5h.01M15 5.5h.01M9 13h6v4H9z",
+  bagno: "M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zM6 12V5a2 2 0 0 1 4 0M7 19l-1 2M17 19l1 2",
+  scale: "M4 20h4v-4h4v-4h4V8h4",
+  albero: "M12 22v-6M12 3l6 8h-4l4 5H6l4-5H6z",
+});
+document.getElementById("icone").innerHTML = Object.entries(IC).map(([k, d]) => `<symbol id="i-${k}" viewBox="0 0 24 24"><path d="${d}"/></symbol>`).join("");
+const ICONE_STANZA = ["casa", "divano", "letto", "fornello", "bagno", "computer", "auto", "lavatrice", "porte", "scale", "albero", "pianta", "piscina", "media", "stella", "zampa", "sport", "cubo"];
+function iconaStanzaDa(nome) {
+  const n = (nome || "").toLowerCase();
+  return /cucin|kitchen/.test(n) ? "fornello" : /sala|soggiorn|salott|living/.test(n) ? "divano" : /camer|letto|bed/.test(n) ? "letto" : /bagn|bath|wc/.test(n) ? "bagno" : /uffic|studio|office/.test(n) ? "computer" : /box|garage|autorimessa/.test(n) ? "auto" : /lavander|laundry/.test(n) ? "lavatrice" : /ingress|entrata|corridoio|hall/.test(n) ? "porte" : /giardin|terrazz|balcon|cortile|orto/.test(n) ? "albero" : /piscin/.test(n) ? "piscina" : /scal|mansard|soffitt|cantin/.test(n) ? "scale" : "casa";
+}
+const stanzeCfg = () => S.cfg.stanze_cfg || { piani: [], vista: "tessere", stanze: [] };
+// le stanze di partenza: quelle di prima (se c'erano) oppure le aree di Home Assistant
+function stanzeBase() {
+  const vecchie = (S.cfg.stanze || []).length ? S.cfg.stanze : S.aree;
+  return vecchie.map((a) => ({ id: a.id, nome: a.nome, icona: iconaStanzaDa(a.nome), piano: "", aperto: /giardin|terrazz|balcon|cortile|orto/i.test(a.nome) }));
+}
+const elencoStanze = () => { const c = stanzeCfg(); return (c.stanze && c.stanze.length) ? c.stanze : stanzeBase(); };
+// cosa sta in una stanza: l'area di Home Assistant, le stanze scelte nelle pagine delle sezioni e (per chi le aveva) le assegnazioni di prima
+function membriStanza(r) {
+  const out = new Set(Object.keys(S.stati).filter((id) => areaEntita(id) === r.id && visibile(id)));
+  const vecchia = (S.cfg.stanze || []).find((x) => x.id === r.id); if (vecchia) for (const e of vecchia.entita || []) if (st(e)) out.add(e);
+  for (const [sid, c] of Object.entries(S.cfg.sez_gen || {})) for (const el of c.elementi || []) if (el.stanza === r.id) { const spec = ((SEZ_GEN[sid] || {}).elementi || {}).campi || []; for (const [k, , t] of spec) if (ENT_TIPI(t) && el[k] && st(el[k])) out.add(el[k]); }
+  for (const m of S.cfg.mie_entita || []) if (m.scheda === "stanza:" + r.id && st(m.entita)) out.add(m.entita);
+  return [...out];
+}
+stanze = function () { return elencoStanze().map((r) => ({ ...r, entita: membriStanza(r) })); };
+function righePerGruppo(ids) {
+  const g = {};
+  for (const id of ids) { const k = ePresa(id) ? "Prese" : eLuce(id) ? "Luci" : GRUPPI[dom(id)] || "Altro"; (g[k] = g[k] || []).push(id); }
+  return Object.entries(g).map(([k, l]) => `<div class="gruppo">${esc(k)}</div><div class="righe-ent">${l.map((id) => { const on = ACCESO.includes(st(id).state), tog = ["light", "switch", "input_boolean", "fan"].includes(dom(id)); return `<div class="riga-ent ${on ? "on" : ""}">${ico(iconaE(id))}<span class="n">${esc(nomeE(id))}</span><small>${esc(testoStato(id))}</small>${tog ? `<button class="tg ${on ? "on" : ""}" data-az="toggle" data-id="${id}" aria-label="Accendi o spegni ${esc(nomeE(id))}"></button>` : ""}</div>`; }).join("")}</div>`).join("");
+}
+vStanze = function () {
+  const ss = stanze(), c = stanzeCfg();
+  if (!S.stanza || !ss.find((s) => s.id === S.stanza)) S.stanza = ss[0] && ss[0].id;
+  const s = ss.find((x) => x.id === S.stanza);
+  const piani = c.piani || [];
+  const gruppi = piani.length ? [...piani.map((p) => [p.nome, ss.filter((x) => x.piano === p.id)]), ["Senza piano", ss.filter((x) => !piani.find((p) => p.id === x.piano))]].filter((x) => x[1].length) : [["", ss]];
+  const ids = s ? s.entita.filter(visibileStanza) : [];
+  return `<div class="stanze">
+    <section class="card"><div class="tit"><h2>Stanze</h2><button class="btn pic" data-nx-vai-ed="stanze">${ico("matita", "s")}Gestisci</button></div>
+      ${gruppi.map(([g, l]) => `${g ? `<div class="gruppo">${esc(g)}</div>` : ""}<div class="elenco">${l.map((x) => { const t = x.aperto ? null : tempStanza(x); return `<button class="${x.id === S.stanza ? "on" : ""}" data-stanza="${esc(x.id)}"><span class="st-ic">${ico(x.icona || "casa")}</span><span style="flex:1"><b>${esc(x.nome)}</b><small>${x.entita.length} dispositivi${x.aperto ? " · all'aperto" : ""}</small></span><span>${t != null ? fmt1(t) + "°" : ""}</span></button>`; }).join("")}</div>`).join("") || '<div class="vuoto">Nessuna stanza. Creale in Impostazioni › Stanze.</div>'}
+    </section>
+    <section class="card">${s ? `<div class="tit"><div style="display:flex;align-items:center;gap:12px"><span class="st-ic grande">${ico(s.icona || "casa", "l")}</span><div><div class="dim" style="font-size:12px">${esc([piani.find((p) => p.id === s.piano) ? piani.find((p) => p.id === s.piano).nome : "Stanza", s.aperto ? "all'aperto" : ""].filter(Boolean).join(" · "))}</div><h2 style="font-size:26px">${esc(s.nome)}</h2></div></div><div class="riga">${tempStanza(s) != null ? `<b style="font-size:24px">${fmt1(tempStanza(s))}°</b>` : ""}${s.entita.some(eLuce) ? `<button class="btn pic" data-tutte-luci="${esc(s.id)}" data-v="turn_off">Spegni luci</button>` : ""}</div></div>${ids.length ? (c.vista === "righe" ? righePerGruppo(ids) : tesserePerGruppo(ids)) : '<p class="mut">Nessun dispositivo in questa stanza. Assegnalo all\'area in Home Assistant oppure scegli la stanza nelle pagine delle sezioni.</p>'}` : '<div class="vuoto">Seleziona una stanza.</div>'}</section>
+  </div>`;
+};
+let stanzaMod = null, pianoNuovo = "";
+function pannelloStanze() {
+  const c = stanzeCfg(), ss = elencoStanze(), piani = c.piani || [];
+  const conta = (pid) => ss.filter((x) => (pid ? x.piano === pid : !piani.find((p) => p.id === x.piano)));
+  return `<p class="mut" style="margin-top:0">Le tue stanze. Ogni stanza compare nei menu delle stanze di clima, elettrodomestici, prese, luci e telecamere. I dispositivi arrivano dalle aree di Home Assistant e dalla stanza che scegli nelle pagine delle sezioni.</p>
+    <div class="ed-box"><div class="tit" style="margin-bottom:8px"><b>I piani della casa</b><span class="badge">${piani.length} piani · ${ss.length} stanze</span></div>
+      ${piani.length ? "" : '<p class="mut">Nessun piano. Aggiungine uno qui sotto: serve solo se la casa ne ha più d\'uno.</p>'}
+      ${piani.map((p, i) => `<div class="voce-imp">${ico("scale")}<div><input type="text" value="${esc(p.nome)}" data-nx-cfg="stanze_cfg.piani.${i}.nome" style="font-weight:600"><small>${conta(p.id).length} stanze · ${esc(conta(p.id).map((x) => x.nome).join(" · "))}</small></div>${suGiu("piani", String(i), i, piani.length)}<button class="btn pic r" data-nx-piano-del="${i}" aria-label="Elimina piano">${ico("cestino", "s")}</button></div>`).join("")}
+      <div class="voce-imp">${ico("casa")}<div><b>Senza piano</b><small>${conta("").length} stanze · ${esc(conta("").map((x) => x.nome).join(" · "))}</small></div></div>
+      <div class="riga" style="margin-top:8px"><input type="text" id="nxPiano" value="${esc(pianoNuovo)}" placeholder="Nome piano (es. Mansarda)" style="flex:1;min-width:180px"><button class="btn pic p" data-nx-piano-add>＋ Aggiungi piano</button></div>
+      <p class="dim" style="font-size:12px;margin-bottom:0">L'ordine dei piani è quello che vedi qui. Eliminare un piano lascia le sue stanze senza piano.</p></div>
+    <div class="ed-box" style="margin-top:12px"><b>Vista della stanza</b><p class="mut" style="margin:4px 0 10px">Come si presenta una stanza aperta nella pagina Stanze.</p>
+      <div class="scelte-grandi">${[["tessere", "Tessere", "Ogni cosa col suo comando, in una griglia"], ["righe", "Righe", "L'elenco diviso per tipo"]].map(([k, n, d]) => `<button class="${(c.vista || "tessere") === k ? "on" : ""}" data-nx-set="stanze_cfg.vista" data-v="${k}"><b>${n}</b><small>${d}</small></button>`).join("")}</div></div>
+    <div class="gruppo">Stanze (${ss.length})</div>
+    ${ss.map((x, i) => `<div class="voce-imp stanza-riga"><span class="st-ic">${ico(x.icona || "casa")}</span><div><b>${esc(x.nome)}</b><small>${esc([piani.find((p) => p.id === x.piano) ? piani.find((p) => p.id === x.piano).nome : "", x.aperto ? "all'aperto" : "", membriStanza(x).length + " dispositivi"].filter(Boolean).join(" · "))}</small></div>${suGiu("stanze", String(i), i, ss.length)}<button class="btn pic" data-nx-stanza-mod="${i}" aria-label="Modifica">${ico("matita", "s")}</button><button class="btn pic r" data-nx-stanza-del="${i}" aria-label="Elimina">${ico("cestino", "s")}</button></div>`).join("")}
+    <div class="riga" style="margin-top:8px"><button class="btn pic p" data-nx-stanza-add>＋ Aggiungi stanza</button>${(c.stanze || []).length ? "" : '<span class="dim" style="font-size:13px">Per ora sono le aree di Home Assistant: alla prima modifica diventano tue.</span>'}</div>`;
+}
+function finestraStanza(i) {
+  const ss = elencoStanze(), x = i === -1 ? { nome: "", icona: "casa", piano: "", aperto: false } : ss[i], piani = stanzeCfg().piani || [];
+  stanzaMod = { i, icona: x.icona || "casa" };
+  finestra(`<div class="tit"><h2>${i === -1 ? "Nuova stanza" : "Modifica stanza"}</h2><button class="btn pic" data-chiudi aria-label="Chiudi">${ico("chiudi", "s")}</button></div>
+    <label class="campo">Nome<input type="text" id="nxStNome" value="${esc(x.nome)}" maxlength="40" placeholder="Es. Cucina"></label>
+    <div class="gruppo">Icona</div><div class="icone-sel">${ICONE_STANZA.map((k) => `<button class="${stanzaMod.icona === k ? "on" : ""}" data-nx-st-icona="${k}" aria-label="Icona ${k}">${ico(k)}</button>`).join("")}</div>
+    <label class="campo" style="margin-top:12px">Piano<span>I piani si creano e si ordinano nella pagina Stanze</span><select id="nxStPiano"><option value="">— Senza piano —</option>${piani.map((p) => `<option value="${esc(p.id)}" ${x.piano === p.id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select></label>
+    <label class="voce-imp" style="cursor:pointer;margin-top:8px"><input type="checkbox" id="nxStAperto" ${x.aperto ? "checked" : ""} style="width:20px;height:20px"><div><b>All'aperto</b><small>Balcone, terrazzo, giardino. Temperatura e umidità si vedono come sempre, ma l'agente non propone di scaldare, rinfrescare o arieggiare, e la stanza non entra nella media della casa.</small></div></label>
+    <div class="riga" style="margin-top:14px"><span class="spazio"></span><button class="btn" data-chiudi>Annulla</button><button class="btn p" data-nx-st-salva>Salva modifiche</button></div>`);
+}
+async function salvaStanze(nuove) { await salvaCfg({ stanze_cfg: { ...stanzeCfg(), stanze: nuove } }); }
+
+// ---- Le tue entità: un'entità in più, nella scheda che vuoi
+let entAperta = -1;
+function schedeScelta() { return [["agente", "Home"], ...SCHEDE.filter((s) => !["agente", "impostazioni"].includes(s.id)).map((s) => [s.id, s.nome]), ...elencoStanze().map((r) => ["stanza:" + r.id, "Stanza · " + r.nome])]; }
+function pannelloMieEntita() {
+  const l = S.cfg.mie_entita || [], sc = schedeScelta(), nomeSc = (k) => (sc.find((x) => x[0] === k) || [null, "—"])[1];
+  return `${datalist("tutte")}<p class="mut" style="margin-top:0">Alcune sezioni sono elenchi (luci, prese, telecamere) e un'entità in più si aggiunge sempre. Altre sono fatte di caselle con un ruolo preciso: l'Energia ha una rete e un fotovoltaico, la Sicurezza una centrale, e per un sensore in più non c'è posto. Qui c'è: scegli l'entità, in quale scheda farla comparire, come chiamarla e con che icona. Compare in fondo alla scheda che scegli, e quelle che si accendono si accendono.</p>
+    ${l.map((m, i) => `<div class="ed-box elem-ed"><div class="voce-imp" style="border:0;padding:0">${ico(m.icona || "stella")}<div><b>${esc(m.nome || (st(m.entita) ? nomeE(m.entita) : m.entita) || "Entità nuova")}</b><small>${esc(nomeSc(m.scheda))}${m.entita ? " · " + esc(m.entita) : ""}</small></div><button class="btn pic" data-nx-ment-apri="${i}" aria-label="Modifica">${ico("matita", "s")}</button><button class="btn pic r" data-nx-del="mie_entita" data-i="${i}" aria-label="Elimina">${ico("cestino", "s")}</button></div>
+      ${entAperta === i ? `<div class="griglia" style="margin-top:12px">
+        <label class="campo">In quale scheda<select data-nx-cfg="mie_entita.${i}.scheda"><option value="">— Scegli la scheda —</option>${sc.map(([k, n]) => `<option value="${esc(k)}" ${m.scheda === k ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
+        <label class="campo">Nome (facoltativo)<input type="text" data-nx-cfg="mie_entita.${i}.nome" value="${esc(m.nome || "")}" placeholder="${esc(st(m.entita) ? nomeE(m.entita) : "Nome")}"></label>
+        ${campoEnt(`mie_entita.${i}.entita`, "Entità", "tutte")}
+      </div><div class="gruppo">Icona</div><div class="icone-sel">${["stella", ...ICONE_SCELTA.filter((x) => x !== "stella"), "stampante", "computer", "termometro", "pianta"].map((k) => `<button class="${(m.icona || "stella") === k ? "on" : ""}" data-nx-ment-icona="${i}|${k}" aria-label="Icona ${k}">${ico(k)}</button>`).join("")}</div>` : ""}</div>`).join("")}
+    <div class="riga" style="margin-top:8px"><button class="btn pic p" data-nx-ment-add>＋ Aggiungi entità</button></div>`;
+}
+// in fondo alla scheda scelta
+function htmlMieEntita(scheda) {
+  const l = (S.cfg.mie_entita || []).filter((m) => m.scheda === scheda && m.entita && st(m.entita));
+  if (!l.length) return "";
+  return `<section class="card mie-entita"><div class="tit"><h2>${ico("stella")} Le tue entità</h2></div><div class="tessere">${l.map((m) => { let t = tessera(m.entita); if (m.nome) t = t.replace(/(<div class="nome">)[^<]*(<\/div>)/, `$1${esc(m.nome)}$2`); if (m.icona) t = t.replace(/<svg class="ic ic-[a-z0-9_]+ ([^"]*)"><use href="#i-[a-z0-9_]+"\/><\/svg>/, `<svg class="ic ic-${m.icona} $1"><use href="#i-${m.icona}"/></svg>`); return t; }).join("")}</div></section>`;
+}
+const _disegnaME = disegna;
+disegna = function () {
+  _disegnaME();
+  if (!S.cfg || S.scheda === "impostazioni") return;
+  const h = htmlMieEntita(S.scheda);
+  if (h) $("#vista").insertAdjacentHTML("beforeend", h);
+};
+// le due pagine dell'editor
+const _pannelliSt = pannelli;
+pannelli = function () {
+  const P = _pannelliSt();
+  if (P.stanze) P.stanze = { ...P.stanze, kw: "stanze piani icona all'aperto vista tessere righe ordine", html: () => visTg("stanze") + pannelloStanze() };
+  if (P.entita) P.entita = { ...P.entita, ic: "stella", tit: "Le tue entità", kw: "le tue entità aggiungi entità scheda icona nome", html: pannelloMieEntita };
+  return P;
+};
+document.addEventListener("click", async (ev) => {
+  const t = ev.target.closest("button"); if (!t) return;
+  const d = t.dataset;
+  if (d.nxVaiEd) { pannello = d.nxVaiEd; localStorage.setItem("nx_pannello", pannello); return vai("impostazioni"); }
+  if (d.nxPianoAdd !== undefined) { const n = $("#nxPiano").value.trim(); if (!n) return avviso("Scrivi il nome del piano", "err"); pianoNuovo = ""; await salvaCfg({ stanze_cfg: { ...stanzeCfg(), piani: [...(stanzeCfg().piani || []), { id: "p_" + Date.now().toString(36), nome: n.slice(0, 30) }] } }); return disegna(); }
+  if (d.nxPianoDel !== undefined) { const c = stanzeCfg(), p = (c.piani || [])[Number(d.nxPianoDel)]; if (!p) return; if (!confirm(`Elimino il piano «${p.nome}»? Le sue stanze restano, senza piano.`)) return; await salvaCfg({ stanze_cfg: { ...c, piani: c.piani.filter((x) => x.id !== p.id), stanze: (c.stanze && c.stanze.length ? c.stanze : stanzeBase()).map((x) => x.piano === p.id ? { ...x, piano: "" } : x) } }); return disegna(); }
+  if (d.nxStanzaAdd !== undefined) return finestraStanza(-1);
+  if (d.nxStanzaMod !== undefined) return finestraStanza(Number(d.nxStanzaMod));
+  if (d.nxStIcona) { stanzaMod.icona = d.nxStIcona; t.parentElement.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === t)); return; }
+  if (d.nxStSalva !== undefined) {
+    const nome = $("#nxStNome").value.trim(); if (!nome) return avviso("Dai un nome alla stanza", "err");
+    const l = [...elencoStanze()], v = { nome: nome.slice(0, 40), icona: stanzaMod.icona, piano: $("#nxStPiano").value, aperto: $("#nxStAperto").checked };
+    if (stanzaMod.i === -1) l.push({ id: "st_" + Date.now().toString(36), ...v }); else l[stanzaMod.i] = { ...l[stanzaMod.i], ...v };
+    await salvaStanze(l); chiudiFinestra(); return;
+  }
+  if (d.nxStanzaDel !== undefined) { const l = [...elencoStanze()], x = l[Number(d.nxStanzaDel)]; if (!confirm(`Elimino la stanza «${x.nome}»? I dispositivi non vengono toccati.`)) return; l.splice(Number(d.nxStanzaDel), 1); await salvaStanze(l); return disegna(); }
+  if (d.nxSu || d.nxGiu) {
+    const [pref, k] = (d.nxSu || d.nxGiu).split(":"), delta = d.nxSu ? -1 : 1, i = Number(k), j = i + delta;
+    if (pref === "stanze") { const l = [...elencoStanze()]; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; await salvaStanze(l); return disegna(); }
+    if (pref === "piani") { const c = stanzeCfg(), l = [...(c.piani || [])]; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; await salvaCfg({ stanze_cfg: { ...c, piani: l } }); return disegna(); }
+  }
+  if (d.nxMentAdd !== undefined) { const l = [...(S.cfg.mie_entita || []), { scheda: "agente", icona: "stella", nome: "", entita: "" }]; entAperta = l.length - 1; await salvaCfg({ mie_entita: l }); return disegna(); }
+  if (d.nxMentApri !== undefined) { entAperta = entAperta === Number(d.nxMentApri) ? -1 : Number(d.nxMentApri); return disegna(); }
+  if (d.nxMentIcona) { const [i, k] = d.nxMentIcona.split("|"); await impostaCfg(`mie_entita.${i}.icona`, k); return disegna(); }
+});
+document.addEventListener("input", (ev) => { if (ev.target.id === "nxPiano") pianoNuovo = ev.target.value; });
+// la stella su una tessera mette l'entità in "Le tue entità" della Home; i vecchi preferiti passano lì una volta sola
+function migraPreferiti() {
+  const p = ((S.cfg.home || {}).preferiti || []);
+  if (!p.length) return;
+  const l = [...(S.cfg.mie_entita || [])];
+  for (const id of p) if (!l.find((m) => m.scheda === "agente" && m.entita === id)) l.push({ scheda: "agente", icona: "", nome: "", entita: id });
+  salvaCfg({ mie_entita: l, home: { ...S.cfg.home, preferiti: [], riquadri: (S.cfg.home.riquadri || []).filter((k) => k !== "preferiti"), ordine: (S.cfg.home.ordine || []).filter((k) => k !== "preferiti") } });
+}
+const _caricaMP = carica;
+carica = async function () { await _caricaMP(); if (S.cfg) migraPreferiti(); };
+document.addEventListener("click", async (ev) => {
+  const t = ev.target.closest("button[data-pref]"); if (!t) return;
+  ev.stopImmediatePropagation();
+  const id = t.dataset.pref, l = S.cfg.mie_entita || [], c = l.find((m) => m.scheda === "agente" && m.entita === id);
+  await salvaCfg({ mie_entita: c ? l.filter((m) => m !== c) : [...l, { scheda: "agente", icona: "", nome: "", entita: id }] });
+  avviso(c ? "Tolto dalla home" : "Aggiunto in fondo alla home", "ok"); disegna();
+}, true);
+const _attesaMP = setInterval(() => { if (S.cfg) { clearInterval(_attesaMP); migraPreferiti(); } }, 300);
+
+// ================================================================== Rifiuti: più materiali nello stesso giorno
+// il giorno resta un testo ("Plastica e metalli + Vetro"): promemoria, pastiglia e riquadri lo mostrano così com'è
+const SEP_RACC = " + ";
+const tipiGiorno = (k) => String(((S.cfg.raccolta || {}).calendario || {})[k] || "").split(SEP_RACC).map((x) => x.trim()).filter(Boolean);
+function tipiRaccolta() { const extra = (S.cfg.raccolta || {}).tipi_extra || []; return [...Object.keys(TIPI_RACC).filter(Boolean).map((k) => [k, TIPI_RACC[k][1]]), ...extra.map((x) => [x.nome, x.colore || "#B48CFF"])]; }
+const coloreRacc = (n) => (tipiRaccolta().find((x) => x[0] === n) || [n, "#B48CFF"])[1];
+let tipoRaccNuovo = "";
+vRaccolta = function () {
+  const r = S.cfg.raccolta, domani = ((new Date().getDay() + 1) % 7) || 7, dom = tipiGiorno(String(domani)), tipi = tipiRaccolta();
+  return `<div class="griglia" style="grid-template-columns:1fr 340px">
+    <section class="card"><h2>Raccolta differenziata</h2><p class="mut" style="margin-top:-6px">Tocca i materiali che passano a ritirare ogni giorno: puoi sceglierne più d'uno (es. lunedì plastica e vetro). Nexalia ti ricorda la sera prima cosa portare fuori.</p>
+      <div class="settimana">${GIORNI.map((g, i) => { const k = String(i + 1), sel = tipiGiorno(k); return `<div class="giorno"><b>${g}</b><div class="tipi-barra">${sel.length ? sel.map((t) => `<i style="background:${coloreRacc(t)}"></i>`).join("") : '<i style="background:#2A3644"></i>'}</div><div class="chip-racc">${tipi.map(([n, c]) => `<button class="${sel.includes(n) ? "on" : ""}" style="--c:${c}" data-nx-racc="${k}|${esc(n)}" aria-pressed="${sel.includes(n)}">${esc(n)}</button>`).join("")}</div></div>`; }).join("")}</div>
+      <div class="gruppo">Altri materiali</div><p class="mut" style="margin-top:0">Se il tuo comune ritira anche altro (sfalci, pannolini, olio…) aggiungilo qui: compare in tutti i giorni.</p>
+      ${((r.tipi_extra) || []).map((x, i) => `<div class="voce-imp"><i class="pallino" style="background:${esc(x.colore)}"></i><div><b>${esc(x.nome)}</b></div><button class="btn pic r" data-nx-racc-del="${i}" aria-label="Elimina ${esc(x.nome)}">${ico("cestino", "s")}</button></div>`).join("")}
+      <div class="riga" style="margin-top:8px"><input type="text" id="nxRaccTipo" value="${esc(tipoRaccNuovo)}" placeholder="Es. Sfalci e potature" maxlength="30" style="flex:1;min-width:180px"><input type="color" id="nxRaccCol" value="#B48CFF" aria-label="Colore"><button class="btn pic p" data-nx-racc-add>＋ Aggiungi materiale</button></div>
+    </section>
+    <section class="card"><div class="dim" style="font-size:12px">Domani, ${GIORNI[domani - 1].toLowerCase()}</div><h2 style="margin:4px 0 14px">${dom.length ? dom.map((t) => `<span style="color:${coloreRacc(t)}">${esc(t)}</span>`).join('<span class="dim"> + </span>') : '<span style="color:var(--mut)">Nessuna raccolta</span>'}</h2>
+      <div class="voce-imp"><div><b>Promemoria</b><small>La sera prima, sulla plancia e sul telefono</small></div><button class="tg ${r.attiva ? "on" : ""}" data-racc-attiva aria-label="Promemoria raccolta"></button></div>
+      <label class="campo" style="margin-top:12px">Orario del promemoria<input type="time" id="raccOra" value="${esc(r.ora)}"></label>
+      <p class="dim" style="font-size:13px">Il promemoria va al servizio di notifica scelto in Impostazioni › Agente.</p>
+    </section>
+  </div>`;
+};
+document.addEventListener("click", async (ev) => {
+  const t = ev.target.closest("button"); if (!t) return;
+  const d = t.dataset, r = S.cfg && S.cfg.raccolta;
+  if (d.nxRacc) {
+    const [k, n] = d.nxRacc.split("|"), sel = tipiGiorno(k), ordine = tipiRaccolta().map((x) => x[0]);
+    const nuovi = (sel.includes(n) ? sel.filter((x) => x !== n) : [...sel, n]).sort((a, b) => ordine.indexOf(a) - ordine.indexOf(b));
+    await salvaCfg({ raccolta: { ...r, calendario: { ...r.calendario, [k]: nuovi.join(SEP_RACC) } } }); return disegna();
+  }
+  if (d.nxRaccAdd !== undefined) {
+    const n = $("#nxRaccTipo").value.trim().replace(/\+/g, "").slice(0, 30); if (!n) return avviso("Scrivi il nome del materiale", "err");
+    if (tipiRaccolta().some((x) => x[0].toLowerCase() === n.toLowerCase())) return avviso("C'è già", "err");
+    tipoRaccNuovo = ""; await salvaCfg({ raccolta: { ...r, tipi_extra: [...(r.tipi_extra || []), { nome: n, colore: $("#nxRaccCol").value }] } }); return disegna();
+  }
+  if (d.nxRaccDel !== undefined) {
+    const x = (r.tipi_extra || [])[Number(d.nxRaccDel)]; if (!x || !confirm(`Elimino «${x.nome}»? Viene tolto anche dai giorni.`)) return;
+    const cal = {}; for (const [k, v] of Object.entries(r.calendario || {})) cal[k] = String(v).split(SEP_RACC).filter((y) => y.trim() !== x.nome).join(SEP_RACC);
+    await salvaCfg({ raccolta: { ...r, calendario: cal, tipi_extra: r.tipi_extra.filter((y) => y !== x) } }); return disegna();
+  }
+});
+document.addEventListener("input", (ev) => { if (ev.target.id === "nxRaccTipo") tipoRaccNuovo = ev.target.value; });

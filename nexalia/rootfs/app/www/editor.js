@@ -324,7 +324,7 @@ function bloccoAntifurto() {
 
 // ------------------------------------------------------------------ home: blocchi nell'ordine scelto
 Object.assign(RIQUADRI, { intestazione: "Intestazione col meteo", pastiglie: "Pastiglie di stato", agente: "Agente (il cerchio)", widget: "Widget", azioni: "Azioni rapide", persone_c: "Persone" });
-RIQUADRI.preferiti = "Dispositivi (preferiti)";
+delete RIQUADRI.preferiti; // il blocco "Dispositivi" non c'è più: le entità in più vanno in Impostazioni › Le tue entità (scheda Home)
 const BLOCCHI_NUOVI = ["intestazione", "pastiglie", "agente", "widget", "azioni", "persone_c"];
 const _vAgente0 = vAgente;
 vAgente = function () {
@@ -523,10 +523,7 @@ pannelli = function () {
     </div>
     <p class="mut" style="margin-top:14px">Tasti dell'antifurto: per chi non ha una centrale (antifurto fatto con ESPHome, script o aiutanti). Compaiono in Sicurezza e nel popup dell'antifurto.</p>
     ${(af.tasti || []).map((t, i) => `<div class="voce-imp">${ico("sicurezza")}<div><b>${esc(t.nome || nomeE(t.entita))}</b><small>${esc(t.entita)}</small></div><button class="btn pic r" data-nx-del="antifurto.tasti" data-i="${i}" aria-label="Elimina">${ico("cestino", "s")}</button></div>`).join("")}
-    <div class="riga" style="margin-top:8px"><input type="text" id="nxTastoNome" placeholder="Nome del tasto (es. Inserisci giardino)" value="${esc(nuovoTasto.nome)}" style="flex:1;min-width:160px"><input type="text" id="nxTastoEnt" list="dl-comando" placeholder="script.inserisci_giardino" value="${esc(nuovoTasto.entita)}" style="flex:1;min-width:160px"><button class="btn pic p" data-nx-add-tasto>＋ Aggiungi un tasto</button></div>
-    <div class="gruppo">Dispositivi in home</div><p class="mut">Le tessere del blocco "Dispositivi". Puoi aggiungerle anche con la stella su ogni tessera.</p>
-    ${pref.map((id, i) => `<div class="voce-imp">${ico(st(id) ? iconaE(id) : "sensore")}<div><b>${esc(st(id) ? nomeE(id) : id)}</b><small>${esc(id)}</small></div>${suGiu("pref", id, i, pref.length)}<button class="btn pic r" data-pref="${id}" aria-label="Togli">${ico("cestino", "s")}</button></div>`).join("")}
-    <div class="riga" style="margin-top:8px"><input type="text" id="nxPrefEnt" list="dl-tutte" placeholder="Scegli un'entità: dominio.nome" style="flex:1;min-width:200px" autocomplete="off"><button class="btn pic p" data-nx-add-pref>＋ Aggiungi un'entità</button></div>`; } };
+    <div class="riga" style="margin-top:8px"><input type="text" id="nxTastoNome" placeholder="Nome del tasto (es. Inserisci giardino)" value="${esc(nuovoTasto.nome)}" style="flex:1;min-width:160px"><input type="text" id="nxTastoEnt" list="dl-comando" placeholder="script.inserisci_giardino" value="${esc(nuovoTasto.entita)}" style="flex:1;min-width:160px"><button class="btn pic p" data-nx-add-tasto>＋ Aggiungi un tasto</button></div>`; } };
   P.widget = { cat: "plancia", ic: "comandi", tit: "Widget", kw: "widget tessere compatte avvisi personalizzati batterie allagamenti fumo gas ordine", html: () => {
     const ow = ordineWidget();
     return `${datalist("tutte")}

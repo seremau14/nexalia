@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.5.1";
+const VERSIONE = "1.6.0";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -52,6 +52,8 @@ const CONFIG_BASE = {
   azioni: [],            // [{tipo, icona, nome, entita, lista:[], conferma}]
   sez_gen: {},           // {sezione: {campi:{chiave: entità}, aggiunte:[], escluse:[], extra:{}}}
   mie_sezioni: [],       // [{id, nome, icona, entita:[]}]
+  mie_entita: [],        // [{scheda, icona, nome, entita}]: entità in più, in fondo alla scheda scelta
+  stanze_cfg: { piani: [], vista: "tessere", stanze: [] }, // stanze come GdAHome: nome, icona, piano, all'aperto, ordine
   home: { riquadri: ["stanze", "diario", "preferiti", "consumo", "persone", "aperture", "allarme"], preferiti: [] },
   sezioni: ["agente", "stanze", "comandi", "energia", "sicurezza", "persone", "scenari", "raccolta"],
   tema: "scuro",
@@ -516,7 +518,7 @@ function corpo(req, max = 2e6) {
   });
 }
 
-const CHIAVI_MODIFICABILI = ["sez_gen", "mie_sezioni", "generali", "pastiglie", "antifurto", "widget", "azioni", "aspetto", "assist", "personalizza", "sezioni_ordine", "home", "stanze", "nascoste", "posizioni", "pianta", "energia", "agente", "raccolta", "sezioni", "tema"];
+const CHIAVI_MODIFICABILI = ["mie_entita", "stanze_cfg", "sez_gen", "mie_sezioni", "generali", "pastiglie", "antifurto", "widget", "azioni", "aspetto", "assist", "personalizza", "sezioni_ordine", "home", "stanze", "nascoste", "posizioni", "pianta", "energia", "agente", "raccolta", "sezioni", "tema"];
 
 // utente di Home Assistant che sta guardando (Home Assistant lo passa a Nexalia con l'ingress)
 function utenteDi(req) {

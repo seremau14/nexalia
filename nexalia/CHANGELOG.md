@@ -1,5 +1,11 @@
 # Novità
 
+## 1.6.0
+- Stanze come GdAHome: piani della casa, vista Tessere o Righe, icona, piano e "all'aperto" per ogni stanza, ordine con le frecce. Niente più assegnazione dei dispositivi da qui: arrivano dalle aree di Home Assistant e dalla stanza scelta nelle sezioni.
+- Le tue entità come GdAHome: scegli un'entità, la scheda in cui farla comparire, nome e icona; compare in fondo a quella scheda.
+- Home: tolto il blocco "Dispositivi". La stella su una tessera ora aggiunge l'entità in fondo alla Home (i vecchi preferiti passano lì da soli).
+- Rifiuti: più materiali nello stesso giorno (es. lunedì plastica e vetro) e materiali in più a scelta (sfalci, pannolini, olio…).
+
 ## 1.5.1
 - Tema scuro, chiaro o automatico (segue il telefono o il computer): Impostazioni › Impostazioni › Schermo. Nel tema chiaro le icone usano tinte più scure per restare leggibili.
 

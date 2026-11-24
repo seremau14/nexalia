@@ -207,7 +207,7 @@ function tessera(id) {
   else if (d === "scene" || d === "script" || d === "button") { cls = "cliccabile"; azione = `data-az="esegui"`; }
   if (pericolo(id) || (eApertura(id) && v === "on")) cls += " allarme";
   const tg = ["light", "switch", "input_boolean", "fan"].includes(d) ? `<span class="tg ${on ? "on" : ""}" aria-hidden="true"></span>` : "";
-  const pref = (S.cfg.home.preferiti || []).includes(id);
+  const pref = (S.cfg.mie_entita || []).some((m) => m.scheda === "agente" && m.entita === id);
   const azioni = `<span class="tess-az"><button class="mini ${pref ? "si" : ""}" data-pref="${id}" aria-label="${pref ? "Togli dai preferiti" : "Aggiungi ai preferiti"}" title="${pref ? "Togli dai preferiti" : "Preferito in home"}">${ico("stella", "s")}</button><button class="mini" data-nascondi="${id}" aria-label="Nascondi dalla plancia" title="Nascondi dalla plancia">${ico("nascondi", "s")}</button></span>`;
   return `<div class="tess ${on && !["binary_sensor", "sensor"].includes(d) ? "on" : ""} ${cls}${nd}${tg ? " con-tg" : ""}" data-id="${id}" ${azione} ${azione ? 'role="button" tabindex="0"' : ""}>${azioni}
     <div class="testa"><div class="ico">${ico(iconaE(id))}</div><div><div class="nome">${esc(nomeE(id))}</div><div class="val">${esc(testoStato(id))}</div></div></div>${tg}${extra}</div>`;
