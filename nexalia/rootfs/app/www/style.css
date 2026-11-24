@@ -553,3 +553,65 @@ body:not(.icone-grigie) .pastiglia.ambra>.ic{color:var(--ambra)}
 body:not(.icone-grigie) .pastiglia.rosso>.ic{color:var(--rosso)}
 body.icone-grigie .barra-rapida button .ic{color:currentColor}
 body:not(.icone-grigie) #vista .ic:not(.btn .ic):not(.tess .ic):not(.widget .ic):not(.orb .ic):not(.pastiglia .ic):not(button.on .ic):not(.scelte .on .ic){color:var(--ic,currentColor)}
+
+/* ===== tema chiaro ===== */
+body.chiaro{--bg:#F2F4F7;--bg2:#E9EDF2;--card:#FFFFFF;--card2:#F6F8FA;--line:#E2E7ED;--line2:#D3DAE2;--tx:#121A23;--mut:#4F5D6B;--dim:#7B8794;--blu:#1F6FC4;--verde:#1E8A57;--ambra:#B86A00;--rosso:#C93A2F;--viola:#6D4ED8;--ciano:#0E8C7E;color-scheme:light}
+body.chiaro .barra{background:rgba(242,244,247,.92)}
+body.chiaro .schede button,body.chiaro .ed-nav button{color:#2B3744}
+body.chiaro .schede button.on{color:#fff}
+body.chiaro .btn:hover{border-color:#B7C2CE}
+body.chiaro .btn.p,body.chiaro .btn.a{color:#fff}
+body.chiaro .tess .ico,body.chiaro .voce .ico,body.chiaro .c3d-pin,body.chiaro .avviso{background:#EEF2F6}
+body.chiaro .tess.on{background:#EAF3FF;border-color:#B9D6F5}
+body.chiaro .st-mini.on{border-color:#B9D6F5}
+body.chiaro :is(.elenco button.on,.scelte button.on,.ed-nav button.on,.icone-sel button.on,.az-rapida.on){background:#E6F0FC}
+body.chiaro .ed-nav button.on{border-color:#9EC3EC}
+body.chiaro .indir,body.chiaro .mini{background:#F1F4F8}
+body.chiaro .riassunto{background:#EEF5FF;border-color:#C9DEF7}
+body.chiaro .allarme-stato.disarmed,body.chiaro .lic-ok,body.chiaro .avviso.ok{background:#EAF7F0;border-color:#A9DBC0}
+body.chiaro .allarme-stato.triggered,body.chiaro .avviso.err{background:#FDECEA;border-color:#F0B4AE}
+body.chiaro .lic-ko,body.chiaro .orb.avviso .nucleo{background:#FFF4E5;border-color:#F2C98A}
+body.chiaro .orb .nucleo{background:#EAF3FF}
+body.chiaro .orb.fatto .nucleo{background:#EAF7F0}
+body.chiaro .pastiglia.ambra{background:#FFF4E5;border-color:#F2C98A}
+body.chiaro .pastiglia.rosso{background:#FDECEA;border-color:#F0B4AE;color:#8A231B}
+body.chiaro .pastiglia.verde{background:#EAF7F0;border-color:#A9DBC0}
+body.chiaro .widget.att{background:linear-gradient(180deg,#FFF6E8,var(--card));border-color:#F2C98A}
+body.chiaro .widget.att .w-ic,body.chiaro:not(.icone-grigie) .widget.att .w-ic{background:#FFEFD6}
+body.chiaro:not(.icone-grigie) .tess.nondisp .ico{background:#EEF2F6}
+body.chiaro .badge.casa,body.chiaro .badge.verde{background:#E3F4EB;color:#1E7A4D}
+body.chiaro .badge.fuori,body.chiaro .badge.ambra{background:#FFF1DC;color:#9A5800}
+body.chiaro .badge.rosso{background:#FDE7E4;color:#A92E24}
+body.chiaro .barra-rapida{background:rgba(255,255,255,.94);box-shadow:0 10px 28px rgba(20,30,45,.16)}
+body.chiaro .barra-rapida button.on{color:color-mix(in srgb,var(--c) 70%,#000)}
+body.chiaro .barra-rapida.grigia button.on,body.chiaro.icone-grigie .barra-rapida button.on{color:#fff}
+body.chiaro .finestra{background:rgba(20,30,45,.45)}
+body.chiaro .agg{background:#EEF5FF}
+body.chiaro .elem .kpi>div{background:var(--card2)}
+body.chiaro .persona-c .avatar{background:color-mix(in srgb,var(--c) 18%,#fff)}
+body.chiaro input,body.chiaro select,body.chiaro textarea{background:#fff}
+body.chiaro .ed-top{background:var(--bg)}
+body.chiaro .ic-luci,body.chiaro .ico:has(>.ic-luci),body.chiaro .w-ic:has(>.ic-luci),body.chiaro .ic-solare,body.chiaro .ico:has(>.ic-solare),body.chiaro .w-ic:has(>.ic-solare){--ic:#B08300}
+body.chiaro .ic-energia,body.chiaro .ico:has(>.ic-energia),body.chiaro .w-ic:has(>.ic-energia),body.chiaro .ic-ups,body.chiaro .ico:has(>.ic-ups),body.chiaro .w-ic:has(>.ic-ups){--ic:#A87400}
+body.chiaro .ic-presa,body.chiaro .ico:has(>.ic-presa),body.chiaro .w-ic:has(>.ic-presa),body.chiaro .ic-meteo,body.chiaro .ico:has(>.ic-meteo),body.chiaro .w-ic:has(>.ic-meteo){--ic:#B86A00}
+body.chiaro .ic-raccolta,body.chiaro .ico:has(>.ic-raccolta),body.chiaro .w-ic:has(>.ic-raccolta),body.chiaro .ic-batteria,body.chiaro .ico:has(>.ic-batteria),body.chiaro .w-ic:has(>.ic-batteria),body.chiaro .ic-pianta,body.chiaro .ico:has(>.ic-pianta),body.chiaro .w-ic:has(>.ic-pianta),body.chiaro .ic-sport,body.chiaro .ico:has(>.ic-sport),body.chiaro .w-ic:has(>.ic-sport),body.chiaro .ic-chiave,body.chiaro .ico:has(>.ic-chiave),body.chiaro .w-ic:has(>.ic-chiave){--ic:#1E8A57}
+body.chiaro .ic-agente,body.chiaro .ico:has(>.ic-agente),body.chiaro .w-ic:has(>.ic-agente),body.chiaro .ic-casa,body.chiaro .ico:has(>.ic-casa),body.chiaro .w-ic:has(>.ic-casa),body.chiaro .ic-comandi,body.chiaro .ico:has(>.ic-comandi),body.chiaro .w-ic:has(>.ic-comandi),body.chiaro .ic-calendario,body.chiaro .ico:has(>.ic-calendario),body.chiaro .w-ic:has(>.ic-calendario),body.chiaro .ic-auto,body.chiaro .ico:has(>.ic-auto),body.chiaro .w-ic:has(>.ic-auto){--ic:#1F6FC4}
+body.chiaro .ic-stanze,body.chiaro .ico:has(>.ic-stanze),body.chiaro .w-ic:has(>.ic-stanze),body.chiaro .ic-cubo,body.chiaro .ico:has(>.ic-cubo),body.chiaro .w-ic:has(>.ic-cubo),body.chiaro .ic-telecamere,body.chiaro .ico:has(>.ic-telecamere),body.chiaro .w-ic:has(>.ic-telecamere),body.chiaro .ic-muro,body.chiaro .ico:has(>.ic-muro),body.chiaro .w-ic:has(>.ic-muro){--ic:#6D4ED8}
+body.chiaro .ic-scenari,body.chiaro .ico:has(>.ic-scenari),body.chiaro .w-ic:has(>.ic-scenari),body.chiaro .ic-lavatrice,body.chiaro .ico:has(>.ic-lavatrice),body.chiaro .w-ic:has(>.ic-lavatrice){--ic:#7C4DDB}
+body.chiaro .ic-sicurezza,body.chiaro .ico:has(>.ic-sicurezza),body.chiaro .w-ic:has(>.ic-sicurezza),body.chiaro .ic-allerta,body.chiaro .ico:has(>.ic-allerta),body.chiaro .w-ic:has(>.ic-allerta),body.chiaro .ic-fumo,body.chiaro .ico:has(>.ic-fumo),body.chiaro .w-ic:has(>.ic-fumo),body.chiaro .ic-cuore,body.chiaro .ico:has(>.ic-cuore),body.chiaro .w-ic:has(>.ic-cuore),body.chiaro .ic-lucchetto,body.chiaro .ico:has(>.ic-lucchetto),body.chiaro .w-ic:has(>.ic-lucchetto){--ic:#C93A2F}
+body.chiaro .ic-clima,body.chiaro .ico:has(>.ic-clima),body.chiaro .w-ic:has(>.ic-clima),body.chiaro .ic-ventola,body.chiaro .ico:has(>.ic-ventola),body.chiaro .w-ic:has(>.ic-ventola),body.chiaro .ic-vento,body.chiaro .ico:has(>.ic-vento),body.chiaro .w-ic:has(>.ic-vento),body.chiaro .ic-piscina,body.chiaro .ico:has(>.ic-piscina),body.chiaro .w-ic:has(>.ic-piscina){--ic:#0E8C7E}
+body.chiaro .ic-finestra,body.chiaro .ico:has(>.ic-finestra),body.chiaro .w-ic:has(>.ic-finestra),body.chiaro .ic-tapparelle,body.chiaro .ico:has(>.ic-tapparelle),body.chiaro .w-ic:has(>.ic-tapparelle),body.chiaro .ic-goccia,body.chiaro .ico:has(>.ic-goccia),body.chiaro .w-ic:has(>.ic-goccia),body.chiaro .ic-pioggia,body.chiaro .ico:has(>.ic-pioggia),body.chiaro .w-ic:has(>.ic-pioggia),body.chiaro .ic-allagamento,body.chiaro .ico:has(>.ic-allagamento),body.chiaro .w-ic:has(>.ic-allagamento),body.chiaro .ic-rubinetto,body.chiaro .ico:has(>.ic-rubinetto),body.chiaro .w-ic:has(>.ic-rubinetto),body.chiaro .ic-campanello,body.chiaro .ico:has(>.ic-campanello),body.chiaro .w-ic:has(>.ic-campanello),body.chiaro .ic-posta,body.chiaro .ico:has(>.ic-posta),body.chiaro .w-ic:has(>.ic-posta){--ic:#1678A8}
+body.chiaro .ic-porte,body.chiaro .ico:has(>.ic-porte),body.chiaro .w-ic:has(>.ic-porte),body.chiaro .ic-termometro,body.chiaro .ico:has(>.ic-termometro),body.chiaro .w-ic:has(>.ic-termometro),body.chiaro .ic-movimento,body.chiaro .ico:has(>.ic-movimento),body.chiaro .w-ic:has(>.ic-movimento),body.chiaro .ic-cancello,body.chiaro .ico:has(>.ic-cancello),body.chiaro .w-ic:has(>.ic-cancello),body.chiaro .ic-scollegato,body.chiaro .ico:has(>.ic-scollegato),body.chiaro .w-ic:has(>.ic-scollegato){--ic:#C25A1F}
+body.chiaro .ic-persone,body.chiaro .ico:has(>.ic-persone),body.chiaro .w-ic:has(>.ic-persone),body.chiaro .ic-zampa,body.chiaro .ico:has(>.ic-zampa),body.chiaro .w-ic:has(>.ic-zampa){--ic:#B5532F}
+body.chiaro .ic-media,body.chiaro .ico:has(>.ic-media),body.chiaro .w-ic:has(>.ic-media),body.chiaro .ic-radio,body.chiaro .ico:has(>.ic-radio),body.chiaro .w-ic:has(>.ic-radio),body.chiaro .ic-play,body.chiaro .ico:has(>.ic-play),body.chiaro .w-ic:has(>.ic-play){--ic:#B33E6B}
+body.chiaro .ic-stella,body.chiaro .ico:has(>.ic-stella),body.chiaro .w-ic:has(>.ic-stella){--ic:#A57A00}
+body.chiaro .ic-impostazioni,body.chiaro .ico:has(>.ic-impostazioni),body.chiaro .w-ic:has(>.ic-impostazioni),body.chiaro .ic-computer,body.chiaro .ico:has(>.ic-computer),body.chiaro .w-ic:has(>.ic-computer),body.chiaro .ic-stampante,body.chiaro .ico:has(>.ic-stampante),body.chiaro .w-ic:has(>.ic-stampante),body.chiaro .ic-robot,body.chiaro .ico:has(>.ic-robot),body.chiaro .w-ic:has(>.ic-robot),body.chiaro .ic-sensore,body.chiaro .ico:has(>.ic-sensore),body.chiaro .w-ic:has(>.ic-sensore),body.chiaro .ic-orologio,body.chiaro .ico:has(>.ic-orologio),body.chiaro .w-ic:has(>.ic-orologio),body.chiaro .ic-aiuto,body.chiaro .ico:has(>.ic-aiuto),body.chiaro .w-ic:has(>.ic-aiuto),body.chiaro .ic-aggiorna,body.chiaro .ico:has(>.ic-aggiorna),body.chiaro .w-ic:has(>.ic-aggiorna),body.chiaro .ic-campana,body.chiaro .ico:has(>.ic-campana),body.chiaro .w-ic:has(>.ic-campana),body.chiaro .ic-cartella,body.chiaro .ico:has(>.ic-cartella),body.chiaro .w-ic:has(>.ic-cartella){--ic:#5F6B78}
+body.chiaro .barra-rapida button{--c2:var(--c)}
+body.chiaro .barra-rapida button .ic{color:color-mix(in srgb,var(--c) 72%,#000)}
+body.chiaro .allarme-stato.armed{background:#FFF4E5;border-color:#F2C98A}
+body.chiaro .casa-tot{background:#EEF5FF}
+body.chiaro .cam-off{background:#EEF2F6}
+body.chiaro .c3d-stanza{background:rgba(31,111,196,.08);border-color:rgba(31,111,196,.35)}
+body.chiaro .tg{background:#CBD3DC}body.chiaro .tg.on{background:var(--blu)}
+body.chiaro .tg::after{box-shadow:0 1px 3px rgba(20,30,45,.25)}
+body.chiaro .cursore{accent-color:var(--blu)}

@@ -388,6 +388,9 @@ function applicaGenerali() {
   const g = S.cfg.generali || {}, c = (S.cfg.widget || {}).compatte || "auto";
   document.body.classList.toggle("barra-libera", g.intestazione_fissa === false);
   document.body.classList.toggle("icone-grigie", !!g.icone_grigie);
+  const chiaro = g.tema === "chiaro" || (g.tema === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches);
+  document.body.classList.toggle("chiaro", chiaro);
+  const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = chiaro ? "#F2F4F7" : "#0B0F14";
   document.body.classList.toggle("compatte", c === "sempre");
   document.body.classList.toggle("compatte-auto", c === "auto");
   migraHome();
@@ -473,6 +476,7 @@ pannelli = function () {
     <label class="campo" style="margin-top:10px">Utente amministratore<span>Vuoto = le impostazioni le vedono tutti. Se scrivi un utente di Home Assistant, solo lui vede e cambia le impostazioni.${u.nome ? ` Tu sei: <b>${esc(u.nome)}</b>` : ""}</span><input type="text" id="edAdmin" maxlength="60" value="${esc(g.admin || "")}" placeholder="${esc(u.nome || "nome utente")}" autocomplete="off"></label>
     <div class="riga" style="margin-top:12px"><button class="btn p" data-nx-salva-generali>Salva</button></div>
     <div class="gruppo">Schermo</div>
+    <div class="voce-imp"><div><b>Tema</b><small>Automatico segue il telefono o il computer (chiaro di giorno, scuro di sera, se l'hai impostato)</small></div><div class="scelte">${[["scuro", "Scuro"], ["chiaro", "Chiaro"], ["auto", "Automatico"]].map(([k, n]) => `<button class="${(g.tema || "scuro") === k ? "on" : ""}" data-nx-set="generali.tema" data-v="${k}">${n}</button>`).join("")}</div></div>
     ${interruttore(localStorage.getItem("nx_chiosco") === "1", "data-nx-chiosco", "Modo chiosco", "La plancia a tutto schermo, senza la barra laterale di Home Assistant. Vale solo su questo apparecchio.")}
     ${interruttore(g.intestazione_fissa !== false, 'data-nx-tg="generali.intestazione_fissa"', "Intestazione fissa", "La barra con le sezioni resta in alto quando scorri")}
     ${interruttore(!g.icone_grigie, 'data-nx-tg="generali.icone_grigie" data-inverti', "Icone colorate", "Ogni tipo di cosa ha il suo colore in tutta la plancia (luci gialle, clima verde acqua, sicurezza rossa…). Spenta, tutte grigie")}
@@ -583,7 +587,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.nxChiosco !== undefined) { localStorage.setItem("nx_chiosco", localStorage.getItem("nx_chiosco") === "1" ? "0" : "1"); applicaChiosco(); return disegna(); }
   if (d.nxTg) { const def = ["generali.intestazione_fissa", "widget.popup_avvisi"].includes(d.nxTg); const v = leggiCfg(d.nxTg); await impostaCfg(d.nxTg, !(v === undefined ? def : v)); applicaGenerali(); disegnaSchede(); return disegna(); }
-  if (d.nxSet) { await impostaCfg(d.nxSet, d.v); return disegna(); }
+  if (d.nxSet) { await impostaCfg(d.nxSet, d.v); applicaGenerali(); return disegna(); }
   if (d.nxLista) { const l = [...(leggiCfg(d.nxLista) || [])]; const i = l.indexOf(d.v); if (i >= 0) l.splice(i, 1); else l.push(d.v); await impostaCfg(d.nxLista, l); return disegna(); }
   if (d.nxSvuota) { await impostaCfg(d.nxSvuota, ""); return disegna(); }
   if (d.nxDel) { const l = [...(leggiCfg(d.nxDel) || [])]; l.splice(Number(d.i), 1); await impostaCfg(d.nxDel, l); return disegna(); }
@@ -640,3 +644,6 @@ setInterval(() => {
   if (_statoPosta.v === "off" && v === "on") localStorage.setItem("nx_posta_arrivo", String(Date.now()));
   _statoPosta.v = v;
 }, 2000);
+
+// tema automatico: segue il cambio chiaro/scuro del dispositivo
+try { matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => { if (S.cfg && (S.cfg.generali || {}).tema === "auto") applicaGenerali(); }); } catch (e) {}

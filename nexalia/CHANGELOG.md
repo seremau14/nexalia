@@ -1,5 +1,8 @@
 # Novità
 
+## 1.5.1
+- Tema scuro, chiaro o automatico (segue il telefono o il computer): Impostazioni › Impostazioni › Schermo. Nel tema chiaro le icone usano tinte più scure per restare leggibili.
+
 ## 1.5.0
 - Icone a colori in tutta la plancia: tessere, widget, pastiglie, titoli delle sezioni, riquadri, menu delle impostazioni e barra rapida. Lo stesso tipo di cosa ha sempre lo stesso colore (luci gialle, clima verde acqua, finestre azzurre, sicurezza rossa, rifiuti verdi…). Le tessere accese si colorano nel loro colore, quelle non disponibili restano grigie.
 - Si torna alle icone grigie da Impostazioni › Impostazioni › Icone colorate.
