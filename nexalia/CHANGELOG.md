@@ -1,5 +1,9 @@
 # Novità
 
+## 1.4.2
+- Riquadro dell'agente più compatto: cerchio piccolo a sinistra, frase e domanda a destra.
+- Schede delle persone più piccole, due per riga sul telefono.
+
 ## 1.4.1
 - Le schede delle persone stanno in cima alla home, sotto le pastiglie.
 - La pastiglia Presenza compare solo quando qualcuno è in casa (niente più «Nessuno in casa»).
