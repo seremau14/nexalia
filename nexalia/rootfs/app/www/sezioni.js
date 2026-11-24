@@ -799,8 +799,8 @@ document.addEventListener("click", async (ev) => {
 document.addEventListener("input", (ev) => { if (ev.target.id === "nxPiano") pianoNuovo = ev.target.value; });
 // la stella su una tessera mette l'entità in "Le tue entità" della Home; i vecchi preferiti passano lì una volta sola
 function migraPreferiti() {
-  const p = ((S.cfg.home || {}).preferiti || []);
-  if (!p.length) return;
+  const h = S.cfg.home || {}, p = h.preferiti || [];
+  if (!p.length && !(h.riquadri || []).includes("preferiti") && !(h.ordine || []).includes("preferiti")) return;
   const l = [...(S.cfg.mie_entita || [])];
   for (const id of p) if (!l.find((m) => m.scheda === "agente" && m.entita === id)) l.push({ scheda: "agente", icona: "", nome: "", entita: id });
   salvaCfg({ mie_entita: l, home: { ...S.cfg.home, preferiti: [], riquadri: (S.cfg.home.riquadri || []).filter((k) => k !== "preferiti"), ordine: (S.cfg.home.ordine || []).filter((k) => k !== "preferiti") } });

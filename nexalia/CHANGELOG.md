@@ -1,5 +1,8 @@
 # Novità
 
+## 1.6.1
+- Il blocco "Dispositivi" sparisce dalla home anche per chi lo aveva acceso senza preferiti.
+
 ## 1.6.0
 - Stanze come GdAHome: piani della casa, vista Tessere o Righe, icona, piano e "all'aperto" per ogni stanza, ordine con le frecce. Niente più assegnazione dei dispositivi da qui: arrivano dalle aree di Home Assistant e dalla stanza scelta nelle sezioni.
 - Le tue entità come GdAHome: scegli un'entità, la scheda in cui farla comparire, nome e icona; compare in fondo a quella scheda.
