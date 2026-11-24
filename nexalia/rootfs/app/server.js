@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.7.0";
+const VERSIONE = "1.7.1";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -126,7 +126,7 @@ async function haRest(metodo, percorso, corpo) {
 async function scriviPrompt(agente, prompt) {
   const reg = await wsChiama({ type: "config/entity_registry/get", entity_id: agente });
   if (!reg || !reg.config_entry_id) throw new Error("Questo assistente non è un agente AI configurabile");
-  const val = (sch) => { const d = {}; for (const c of sch || []) { const v = c.description && c.description.suggested_value !== undefined ? c.description.suggested_value : c.default; if (v !== undefined) d[c.name] = v; } return d; };
+  const val = (sch) => { const d = {}; for (const c of sch || []) { const v = c.description && c.description.suggested_value != null ? c.description.suggested_value : c.default; if (v != null) d[c.name] = v; } return d; };
   let passo;
   if (reg.config_subentry_id) {
     const sub = (await wsChiama({ type: "config_entries/subentries/list", entry_id: reg.config_entry_id })).find((x) => x.subentry_id === reg.config_subentry_id) || {};

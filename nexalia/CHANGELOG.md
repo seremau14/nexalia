@@ -1,5 +1,8 @@
 # Novità
 
+## 1.7.1
+- "Applica all'assistente" non riporta più il modello AI a quello predefinito quando cambia il carattere.
+
 ## 1.7.0
 - Impostazioni › Assistente: la plancia può rispondere con una voce di Home Assistant (Piper o un servizio cloud), uguale su tutti gli apparecchi, con il tasto "Prova la voce".
 - Carattere dell'assistente AI: Maggiordomo, Amichevole, Essenziale o "A modo mio". Nexalia scrive le istruzioni direttamente nell'assistente AI di Home Assistant (Claude, ChatGPT, Gemini…).
