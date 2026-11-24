@@ -101,7 +101,7 @@ function pastiglia(k) {
     case "clima": { const ids = tutteId().filter((id) => (dom(id) === "climate" && (ACCESO_CLIMA.includes(st(id).state) && attr(id, "hvac_action") !== "idle")) || (dom(id) === "water_heater" && !["off", "unavailable"].includes(st(id).state))); if (!ids.length) return null; const caldo = ids.some((id) => st(id).state === "heat" || attr(id, "hvac_action") === "heating"); return { t: ids.length === 1 ? (caldo ? "Riscaldamento acceso" : nomeE(ids[0]) + " acceso") : ids.length + " climatizzatori accesi", ic: "clima", cls: "", ids }; }
     case "prese": { const c = conta(tutteId().filter((id) => ePresa(id) && visibile(id) && st(id).state === "on"), "presa accesa", "prese accese"); return c && { t: c[0], ic: "presa", cls: "", ids: c[1] }; }
     case "musica": { const id = tutteId().find((x) => dom(x) === "media_player" && st(x).state === "playing"); return id ? { t: attr(id, "media_title") ? attr(id, "media_title") + (attr(id, "media_artist") ? " · " + attr(id, "media_artist") : "") : nomeE(id), ic: "media", cls: "", ids: [id] } : null; }
-    case "presenza": { const pp = tutteId().filter((id) => dom(id) === "person"); if (!pp.length) return null; const n = pp.filter((id) => st(id).state === "home"); return { t: n.length ? n.map((id) => nomeE(id)).join(", ") + " in casa" : "Nessuno in casa", ic: "persone", cls: "" }; }
+    case "presenza": { const pp = tutteId().filter((id) => dom(id) === "person"); if (!pp.length) return null; const n = pp.filter((id) => st(id).state === "home"); return n.length ? { t: n.map((id) => nomeE(id)).join(", ") + " in casa", ic: "persone", cls: "" } : null; }
     case "temperatura": { const v = numE(p.temperatura); return v == null ? null : { t: fmt1(v) + "°", ic: "termometro", cls: "" }; }
     case "umidita": { const v = numE(p.umidita); return v == null ? null : { t: Math.round(v) + "% umidità", ic: "goccia", cls: "" }; }
     case "pioggia_adesso": { const v = numE(p.pioggia); if (v != null) return v > 0 ? { t: "Piove · " + fmt1(v) + " " + (attr(p.pioggia, "unit_of_measurement") || "mm/h"), ic: "pioggia", cls: "blu" } : null; const w = (p.meteo && st(p.meteo)) ? p.meteo : tutteId().find((x) => dom(x) === "weather"); return w && ["rainy", "pouring", "lightning-rainy", "snowy-rainy"].includes(st(w).state) ? { t: "Piove", ic: "pioggia", cls: "blu" } : null; }
@@ -137,11 +137,14 @@ function vIntestazione() {
   </section>`;
 }
 function vPersoneHome() {
-  const pp = tutteId().filter((id) => dom(id) === "person");
-  if (!pp.length) return "";
+  // prima le persone impostate in Impostazioni › Persone (anche solo col telefono), poi le altre persone di Home Assistant
+  const els = (((S.cfg.sez_gen || {}).persone || {}).elementi || []).filter((x) => (x.tracker && st(x.tracker)) || (x.persona && st(x.persona)));
+  const coperte = new Set(els.map((x) => x.persona).filter(Boolean));
+  const lista = [...els.map((el) => ({ el, id: el.tracker && st(el.tracker) ? el.tracker : el.persona })), ...tutteId().filter((id) => dom(id) === "person" && !coperte.has(id)).map((id) => ({ el: {}, id }))];
+  if (!lista.length) return "";
   const dove = (id) => { const v = st(id).state; return v === "home" ? "In casa" : v === "not_home" ? "Fuori" : v; };
   const da = (id) => { const m = Math.round((Date.now() - new Date(st(id).last_changed)) / 60000); return m < 60 ? m + " min fa" : m < 1440 ? Math.round(m / 60) + " ore fa" : Math.round(m / 1440) + " giorni fa"; };
-  return `<section class="persone-home">${pp.map((id, i) => { const foto = attr(id, "entity_picture"); const el = (((S.cfg.sez_gen || {}).persone || {}).elementi || []).find((x) => x.persona === id) || {}; const extra = [el.batteria && st(el.batteria) ? "📱 " + testoStato(el.batteria) : "", el.orologio && st(el.orologio) ? "⌚ " + testoStato(el.orologio) : "", st(id).state !== "home" && el.rientro && st(el.rientro) ? "a casa in " + testoStato(el.rientro) : st(id).state !== "home" && el.distanza && st(el.distanza) ? testoStato(el.distanza) + " da casa" : ""].filter(Boolean).join(" · "); return `<div class="persona-c ${st(id).state === "home" ? "casa" : ""}"><div class="avatar" style="--c:${el.colore || COLORI[i % COLORI.length]}">${foto ? `<img src="${esc(foto)}" alt="">` : esc((el.nome || nomeE(id)).slice(0, 1))}</div><div><b>${esc(el.nome || nomeE(id))}</b><span class="badge ${st(id).state === "home" ? "casa" : "fuori"}">${esc(dove(id))}</span><small>${da(id)}${extra ? " · " + esc(extra) : ""}</small></div></div>`; }).join("")}</section>`;
+  return `<section class="persone-home">${lista.map(({ el, id }, i) => { const foto = el.persona ? attr(el.persona, "entity_picture") : dom(id) === "person" ? attr(id, "entity_picture") : null; const casa = st(id).state === "home"; const extra = [el.batteria && st(el.batteria) ? "📱 " + testoStato(el.batteria) : "", el.orologio && st(el.orologio) ? "⌚ " + testoStato(el.orologio) : "", !casa && el.rientro && st(el.rientro) ? "a casa in " + testoStato(el.rientro) : !casa && el.distanza && st(el.distanza) ? testoStato(el.distanza) + " da casa" : ""].filter(Boolean).join(" · "); const nome = el.nome || nomeE(id); return `<div class="persona-c ${casa ? "casa" : ""}"><div class="avatar" style="--c:${el.colore || COLORI[i % COLORI.length]}">${foto ? `<img src="${esc(foto)}" alt="">` : esc(nome.slice(0, 1))}</div><div><b>${esc(nome)}</b><span class="badge ${casa ? "casa" : "fuori"}">${esc(dove(id))}</span><small>${da(id)}${extra ? " · " + esc(extra) : ""}</small></div></div>`; }).join("")}</section>`;
 }
 
 // ------------------------------------------------------------------ widget
@@ -350,14 +353,14 @@ vAgente = function () {
 ordineHome = function () {
   const h = S.cfg.home || {};
   let base = (h.ordine || h.riquadri || []).filter((k) => RIQUADRI[k] && k !== "persone");
-  if (!h.blocchi_nuovi) base = ["intestazione", "pastiglie", "agente", ...base, "persone_c", "widget", "azioni"].filter((k, i, a) => a.indexOf(k) === i);
+  if (!h.blocchi_nuovi) base = ["intestazione", "pastiglie", "persone_c", "agente", ...base, "widget", "azioni"].filter((k, i, a) => a.indexOf(k) === i);
   return [...base, ...Object.keys(RIQUADRI).filter((k) => !base.includes(k) && k !== "persone")];
 };
 salvaHome = function (riquadri, ordine) {
   const att = ordine.filter((k) => riquadri.includes(k) || k === "agente");
   return salvaCfg({ home: { ...S.cfg.home, riquadri: att, ordine, blocchi_nuovi: true } }).then(disegna);
 };
-const homeAttivi = () => { const h = S.cfg.home || {}; return h.blocchi_nuovi ? (h.riquadri || []) : ["intestazione", "pastiglie", "agente", ...(h.riquadri || []).filter((k) => k !== "persone"), "persone_c", "widget", "azioni"]; };
+const homeAttivi = () => { const h = S.cfg.home || {}; return h.blocchi_nuovi ? (h.riquadri || []) : ["intestazione", "pastiglie", "persone_c", "agente", ...(h.riquadri || []).filter((k) => k !== "persone"), "widget", "azioni"]; };
 
 // stanze mostrate in home
 const _stanze0 = stanze;

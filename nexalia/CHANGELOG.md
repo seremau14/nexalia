@@ -1,5 +1,10 @@
 # Novità
 
+## 1.4.1
+- Le schede delle persone stanno in cima alla home, sotto le pastiglie.
+- La pastiglia Presenza compare solo quando qualcuno è in casa (niente più «Nessuno in casa»).
+- In home compaiono anche le persone aggiunte in Impostazioni › Persone con il solo telefono, ognuna col suo stato.
+
 ## 1.4.0
 - Barra rapida in fondo con le icone delle sezioni preferite: si accende, si spegne e si sceglie quali tasti mettere e in che ordine (Impostazioni › Impostazioni). In alto resta solo l'ingranaggio delle impostazioni; le sezioni in alto si possono rimettere.
 - Le pagine delle impostazioni hanno le caselle complete di ogni sezione: più UPS (stato NUT, rete, autonomia), più piscine (pH e cloro con limiti, filtrazione giornaliera automatica), zone e programma dell'irrigazione (salta col terreno bagnato o la pioggia probabile, parte da sola col terreno secco), veicoli (auto o moto, elettrica/termica/ibrida, batteria, autonomia, ricarica, gomme, portiere, EVCC e wallbox), unità clima con tasto rapido, temperature per stanza con associazione automatica, impianti di gestione termica (solare, scaldabagno, caldaia, stufa a pellet), piante, contatori acqua e gas, finestre e tapparelle, elettrodomestici con soglia «in funzione», stampanti, robot, animali, acquari e terrari, persone con telefono e orologio, prese «si vedono ma non si comandano», telecamere, aperture con conferma, citofoni e cassette della posta, calendari e liste, nodi del MiniPC.
