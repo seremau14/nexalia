@@ -1,5 +1,8 @@
 # Novità
 
+## 1.4.3
+- Barra rapida a colori: ogni sezione ha la sua icona colorata e il tasto aperto si accende nel colore della sezione. Si torna alle icone grigie da Impostazioni › Impostazioni › Icone colorate.
+
 ## 1.4.2
 - Riquadro dell'agente più compatto: cerchio piccolo a sinistra, frase e domanda a destra.
 - Schede delle persone più piccole, due per riga sul telefono.
