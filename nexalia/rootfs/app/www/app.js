@@ -47,7 +47,7 @@ const IC = {
   globo: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z",
 };
 document.getElementById("icone").innerHTML = Object.entries(IC).map(([k, d]) => `<symbol id="i-${k}" viewBox="0 0 24 24"><path d="${d}"/></symbol>`).join("");
-const ico = (n, c = "") => `<svg class="ic ${c}"><use href="#i-${n}"/></svg>`;
+const ico = (n, c = "") => `<svg class="ic ic-${n} ${c}"><use href="#i-${n}"/></svg>`;
 
 // ------------------------------------------------------------------ stato
 const S = { stati: {}, aree: [], dispositivi: [], entita: [], cfg: null, diario: [], collegato: false, scheda: localStorage.getItem("nx_scheda") || "agente", stanza: null, tunnel: "spento", versione: "" };

@@ -361,7 +361,7 @@ function disegnaBarraRapida() {
   document.body.classList.toggle("con-barra-rapida", on);
   if (!on) { if (el) el.remove(); return; }
   if (!el) { el = document.createElement("nav"); el.id = "barraRapida"; el.className = "barra-rapida"; el.setAttribute("aria-label", "Barra rapida"); document.body.appendChild(el); }
-  el.classList.toggle("grigia", !!barraRapida().grigia);
+  el.classList.toggle("grigia", !!(S.cfg.generali || {}).icone_grigie);
   el.innerHTML = tastiBarra().map((id) => { const s = SCHEDE.find((x) => x.id === id); return `<button class="${S.scheda === id ? "on" : ""}" style="--c:${coloreSez(id)}" data-scheda="${id}" aria-label="${esc(s.nome)}">${ico(s.ic)}<span>${esc(id === "agente" ? "Home" : s.nome)}</span></button>`; }).join("");
 }
 // i tasti della barra aprono anche sezioni non mostrate in alto
@@ -504,7 +504,6 @@ function htmlBarraRapida() {
   const altre = SCHEDE.filter((s) => !tasti.includes(s.id));
   return `<div class="gruppo">Barra rapida in fondo</div><p class="mut">Una fila di icone in fondo allo schermo per saltare alle sezioni preferite con un tocco. I tasti aprono anche sezioni che non tieni nella barra in alto.</p>
     ${interruttore(barraAccesa(), "data-nx-barra-on", "Mostra la barra rapida", "Spenta, le sezioni tornano nella barra in alto")}
-    ${barraAccesa() ? interruttore(!b.grigia, "data-nx-barra-colori", "Icone colorate", "Ogni sezione ha il suo colore; spenta, tutte grigie") : ""}
     ${barraAccesa() ? interruttore(!!(S.cfg.generali || {}).sezioni_in_alto, 'data-nx-tg="generali.sezioni_in_alto"', "Sezioni anche nella barra in alto", "Spenta, in alto resta solo l'ingranaggio delle impostazioni") : ""}
     ${barraAccesa() ? `${tasti.map((id, i) => { const s = SCHEDE.find((x) => x.id === id); return `<div class="voce-imp">${ico(s.ic)}<div><b>${esc(id === "agente" ? "Home" : s.nome)}</b></div>${suGiu("barra", id, i, tasti.length)}<button class="btn pic r" data-nx-barra-del="${id}" aria-label="Togli">${ico("cestino", "s")}</button></div>`; }).join("")}
       <div class="gruppo">Aggiungi un tasto</div><div class="scelte">${altre.map((s) => `<button data-nx-barra-add="${s.id}">${ico(s.ic, "s")}${esc(s.nome)}</button>`).join("")}</div>` : ""}`;
@@ -625,7 +624,6 @@ document.addEventListener("click", async (ev) => {
   if (d.nxAvvaGiorno) { leggiAvvA(); const g = nuovoAvvA.giorni; const i = g.indexOf(d.nxAvvaGiorno); if (i >= 0) g.splice(i, 1); else g.push(d.nxAvvaGiorno); return disegna(); }
   if (d.nxAvvaAdd !== undefined) { leggiAvvA(); const a = { ...nuovoAvvA, giorni: [...nuovoAvvA.giorni] }; if (!a.testo) return avviso("Scrivi cosa devono dire", "err"); if (a.tipo === "cambio" && !st(a.entita)) return avviso("Scegli un'entità che esiste", "err"); if (a.tipo === "orario") { delete a.entita; delete a.valore; } else { delete a.ora; delete a.giorni; } await impostaCfg("sez_gen.avvisi_alexa.extra.avvisi", [...(opz("avvisi_alexa", "avvisi") || []), a]); nuovoAvvA = { testo: "", tipo: "orario", ora: "08:00", giorni: [], entita: "", valore: "on" }; return disegna(); }
   if (d.nxBarraOn !== undefined) { const b = { ...barraRapida() }; b.on = !barraAccesa(); if (b.on && !(b.tasti || []).length) b.tasti = tastiBarra().slice(0, 8); await impostaCfg("generali.barra_rapida", b); disegnaSchede(); return disegna(); }
-  if (d.nxBarraColori !== undefined) { await impostaCfg("generali.barra_rapida", { ...barraRapida(), grigia: !barraRapida().grigia }); disegnaBarraRapida(); return disegna(); }
   if (d.nxBarraAdd) { const b = { ...barraRapida() }; b.tasti = [...tastiBarra(), d.nxBarraAdd]; await impostaCfg("generali.barra_rapida", b); disegnaSchede(); return disegna(); }
   if (d.nxBarraDel) { const b = { ...barraRapida() }; b.tasti = tastiBarra().filter((x) => x !== d.nxBarraDel); await impostaCfg("generali.barra_rapida", b); disegnaSchede(); return disegna(); }
   if (d.nxSu || d.nxGiu) {

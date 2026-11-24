@@ -478,3 +478,78 @@ body.solo-ingranaggio .schede .ingranaggio{margin:0 0 0 auto}
 .barra-rapida button.on .ic{color:var(--c)}
 .barra-rapida.grigia button .ic{color:currentColor}
 .barra-rapida.grigia button.on{background:var(--blu);color:#0B0F14;box-shadow:none}
+
+/* icone a colori in tutta la plancia: lo stesso colore per lo stesso tipo di cosa */
+:is(.ic-luci,.ico:has(>.ic-luci),.w-ic:has(>.ic-luci)){--ic:#FFD866}
+:is(.ic-solare,.ico:has(>.ic-solare),.w-ic:has(>.ic-solare)){--ic:#FFD866}
+:is(.ic-energia,.ico:has(>.ic-energia),.w-ic:has(>.ic-energia)){--ic:#FFC94D}
+:is(.ic-ups,.ico:has(>.ic-ups),.w-ic:has(>.ic-ups)){--ic:#FFC94D}
+:is(.ic-presa,.ico:has(>.ic-presa),.w-ic:has(>.ic-presa)){--ic:#FFB454}
+:is(.ic-meteo,.ico:has(>.ic-meteo),.w-ic:has(>.ic-meteo)){--ic:#FFB454}
+:is(.ic-raccolta,.ico:has(>.ic-raccolta),.w-ic:has(>.ic-raccolta)){--ic:#4CC38A}
+:is(.ic-batteria,.ico:has(>.ic-batteria),.w-ic:has(>.ic-batteria)){--ic:#4CC38A}
+:is(.ic-pianta,.ico:has(>.ic-pianta),.w-ic:has(>.ic-pianta)){--ic:#4CC38A}
+:is(.ic-sport,.ico:has(>.ic-sport),.w-ic:has(>.ic-sport)){--ic:#4CC38A}
+:is(.ic-chiave,.ico:has(>.ic-chiave),.w-ic:has(>.ic-chiave)){--ic:#4CC38A}
+:is(.ic-agente,.ico:has(>.ic-agente),.w-ic:has(>.ic-agente)){--ic:#5AB0FF}
+:is(.ic-casa,.ico:has(>.ic-casa),.w-ic:has(>.ic-casa)){--ic:#5AB0FF}
+:is(.ic-comandi,.ico:has(>.ic-comandi),.w-ic:has(>.ic-comandi)){--ic:#5AB0FF}
+:is(.ic-calendario,.ico:has(>.ic-calendario),.w-ic:has(>.ic-calendario)){--ic:#5AB0FF}
+:is(.ic-auto,.ico:has(>.ic-auto),.w-ic:has(>.ic-auto)){--ic:#5AB0FF}
+:is(.ic-stanze,.ico:has(>.ic-stanze),.w-ic:has(>.ic-stanze)){--ic:#A78BFA}
+:is(.ic-cubo,.ico:has(>.ic-cubo),.w-ic:has(>.ic-cubo)){--ic:#A78BFA}
+:is(.ic-telecamere,.ico:has(>.ic-telecamere),.w-ic:has(>.ic-telecamere)){--ic:#A78BFA}
+:is(.ic-muro,.ico:has(>.ic-muro),.w-ic:has(>.ic-muro)){--ic:#A78BFA}
+:is(.ic-scenari,.ico:has(>.ic-scenari),.w-ic:has(>.ic-scenari)){--ic:#C4A1FF}
+:is(.ic-lavatrice,.ico:has(>.ic-lavatrice),.w-ic:has(>.ic-lavatrice)){--ic:#C4A1FF}
+:is(.ic-sicurezza,.ico:has(>.ic-sicurezza),.w-ic:has(>.ic-sicurezza)){--ic:#FF7A70}
+:is(.ic-allerta,.ico:has(>.ic-allerta),.w-ic:has(>.ic-allerta)){--ic:#FF7A70}
+:is(.ic-fumo,.ico:has(>.ic-fumo),.w-ic:has(>.ic-fumo)){--ic:#FF7A70}
+:is(.ic-cuore,.ico:has(>.ic-cuore),.w-ic:has(>.ic-cuore)){--ic:#FF7A70}
+:is(.ic-lucchetto,.ico:has(>.ic-lucchetto),.w-ic:has(>.ic-lucchetto)){--ic:#FF7A70}
+:is(.ic-clima,.ico:has(>.ic-clima),.w-ic:has(>.ic-clima)){--ic:#5EEAD4}
+:is(.ic-ventola,.ico:has(>.ic-ventola),.w-ic:has(>.ic-ventola)){--ic:#5EEAD4}
+:is(.ic-vento,.ico:has(>.ic-vento),.w-ic:has(>.ic-vento)){--ic:#5EEAD4}
+:is(.ic-piscina,.ico:has(>.ic-piscina),.w-ic:has(>.ic-piscina)){--ic:#5EEAD4}
+:is(.ic-finestra,.ico:has(>.ic-finestra),.w-ic:has(>.ic-finestra)){--ic:#7DD3FC}
+:is(.ic-tapparelle,.ico:has(>.ic-tapparelle),.w-ic:has(>.ic-tapparelle)){--ic:#7DD3FC}
+:is(.ic-goccia,.ico:has(>.ic-goccia),.w-ic:has(>.ic-goccia)){--ic:#7DD3FC}
+:is(.ic-pioggia,.ico:has(>.ic-pioggia),.w-ic:has(>.ic-pioggia)){--ic:#7DD3FC}
+:is(.ic-allagamento,.ico:has(>.ic-allagamento),.w-ic:has(>.ic-allagamento)){--ic:#7DD3FC}
+:is(.ic-rubinetto,.ico:has(>.ic-rubinetto),.w-ic:has(>.ic-rubinetto)){--ic:#7DD3FC}
+:is(.ic-campanello,.ico:has(>.ic-campanello),.w-ic:has(>.ic-campanello)){--ic:#7DD3FC}
+:is(.ic-posta,.ico:has(>.ic-posta),.w-ic:has(>.ic-posta)){--ic:#7DD3FC}
+:is(.ic-porte,.ico:has(>.ic-porte),.w-ic:has(>.ic-porte)){--ic:#FF9C6B}
+:is(.ic-termometro,.ico:has(>.ic-termometro),.w-ic:has(>.ic-termometro)){--ic:#FF9C6B}
+:is(.ic-movimento,.ico:has(>.ic-movimento),.w-ic:has(>.ic-movimento)){--ic:#FF9C6B}
+:is(.ic-cancello,.ico:has(>.ic-cancello),.w-ic:has(>.ic-cancello)){--ic:#FF9C6B}
+:is(.ic-scollegato,.ico:has(>.ic-scollegato),.w-ic:has(>.ic-scollegato)){--ic:#FF9C6B}
+:is(.ic-persone,.ico:has(>.ic-persone),.w-ic:has(>.ic-persone)){--ic:#F0997B}
+:is(.ic-zampa,.ico:has(>.ic-zampa),.w-ic:has(>.ic-zampa)){--ic:#F0997B}
+:is(.ic-media,.ico:has(>.ic-media),.w-ic:has(>.ic-media)){--ic:#ED93B1}
+:is(.ic-radio,.ico:has(>.ic-radio),.w-ic:has(>.ic-radio)){--ic:#ED93B1}
+:is(.ic-play,.ico:has(>.ic-play),.w-ic:has(>.ic-play)){--ic:#ED93B1}
+:is(.ic-stella,.ico:has(>.ic-stella),.w-ic:has(>.ic-stella)){--ic:#FFE08A}
+:is(.ic-impostazioni,.ico:has(>.ic-impostazioni),.w-ic:has(>.ic-impostazioni)){--ic:#9AA6B2}
+:is(.ic-computer,.ico:has(>.ic-computer),.w-ic:has(>.ic-computer)){--ic:#9AA6B2}
+:is(.ic-stampante,.ico:has(>.ic-stampante),.w-ic:has(>.ic-stampante)){--ic:#9AA6B2}
+:is(.ic-robot,.ico:has(>.ic-robot),.w-ic:has(>.ic-robot)){--ic:#9AA6B2}
+:is(.ic-sensore,.ico:has(>.ic-sensore),.w-ic:has(>.ic-sensore)){--ic:#9AA6B2}
+:is(.ic-orologio,.ico:has(>.ic-orologio),.w-ic:has(>.ic-orologio)){--ic:#9AA6B2}
+:is(.ic-aiuto,.ico:has(>.ic-aiuto),.w-ic:has(>.ic-aiuto)){--ic:#9AA6B2}
+:is(.ic-aggiorna,.ico:has(>.ic-aggiorna),.w-ic:has(>.ic-aggiorna)){--ic:#9AA6B2}
+:is(.ic-campana,.ico:has(>.ic-campana),.w-ic:has(>.ic-campana)){--ic:#9AA6B2}
+:is(.ic-cartella,.ico:has(>.ic-cartella),.w-ic:has(>.ic-cartella)){--ic:#9AA6B2}
+body:not(.icone-grigie) :is(.tit h2,.ed-nav button,.elem-tit,.voce-imp,.kpi small,.az-rapida,.scelte button,.schede button,.pastiglia,.intest-chip span,.intest-meteo,.meteo-big,.ed-tit,.gruppo,.voce .ico,.diario .ico) > .ic,
+body:not(.icone-grigie) :is(.az-rapida,.kpi small) .ic{color:var(--ic,currentColor)}
+body:not(.icone-grigie) .tess .ico{color:color-mix(in srgb,var(--ic,var(--mut)) 72%,#8B96A3)}
+body:not(.icone-grigie) .tess.on .ico,body:not(.icone-grigie) .tess.on.luce .ico{background:color-mix(in srgb,var(--ic,var(--blu)) 17%,transparent);color:var(--ic,var(--blu))}
+body:not(.icone-grigie) .tess.nondisp .ico{color:var(--dim);background:#1B2532}
+body:not(.icone-grigie) .widget .w-ic{color:var(--ic,var(--blu));background:color-mix(in srgb,var(--ic,var(--blu)) 13%,var(--card2))}
+body:not(.icone-grigie) .widget.att .w-ic{color:var(--ambra);background:#2A2012}
+body:not(.icone-grigie) .ed-nav button.on>.ic{color:var(--ic,currentColor)}
+body:not(.icone-grigie) .schede button.on>.ic{color:#06101C}
+body:not(.icone-grigie) .pastiglia.ambra>.ic{color:var(--ambra)}
+body:not(.icone-grigie) .pastiglia.rosso>.ic{color:var(--rosso)}
+body.icone-grigie .barra-rapida button .ic{color:currentColor}
+body:not(.icone-grigie) #vista .ic:not(.btn .ic):not(.tess .ic):not(.widget .ic):not(.orb .ic):not(.pastiglia .ic):not(button.on .ic):not(.scelte .on .ic){color:var(--ic,currentColor)}

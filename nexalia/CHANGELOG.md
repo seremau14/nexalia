@@ -1,5 +1,9 @@
 # Novità
 
+## 1.5.0
+- Icone a colori in tutta la plancia: tessere, widget, pastiglie, titoli delle sezioni, riquadri, menu delle impostazioni e barra rapida. Lo stesso tipo di cosa ha sempre lo stesso colore (luci gialle, clima verde acqua, finestre azzurre, sicurezza rossa, rifiuti verdi…). Le tessere accese si colorano nel loro colore, quelle non disponibili restano grigie.
+- Si torna alle icone grigie da Impostazioni › Impostazioni › Icone colorate.
+
 ## 1.4.3
 - Barra rapida a colori: ogni sezione ha la sua icona colorata e il tasto aperto si accende nel colore della sezione. Si torna alle icone grigie da Impostazioni › Impostazioni › Icone colorate.
 

@@ -387,6 +387,7 @@ window.addEventListener("pagehide", () => applicaChiosco(false));
 function applicaGenerali() {
   const g = S.cfg.generali || {}, c = (S.cfg.widget || {}).compatte || "auto";
   document.body.classList.toggle("barra-libera", g.intestazione_fissa === false);
+  document.body.classList.toggle("icone-grigie", !!g.icone_grigie);
   document.body.classList.toggle("compatte", c === "sempre");
   document.body.classList.toggle("compatte-auto", c === "auto");
   migraHome();
@@ -474,6 +475,7 @@ pannelli = function () {
     <div class="gruppo">Schermo</div>
     ${interruttore(localStorage.getItem("nx_chiosco") === "1", "data-nx-chiosco", "Modo chiosco", "La plancia a tutto schermo, senza la barra laterale di Home Assistant. Vale solo su questo apparecchio.")}
     ${interruttore(g.intestazione_fissa !== false, 'data-nx-tg="generali.intestazione_fissa"', "Intestazione fissa", "La barra con le sezioni resta in alto quando scorri")}
+    ${interruttore(!g.icone_grigie, 'data-nx-tg="generali.icone_grigie" data-inverti', "Icone colorate", "Ogni tipo di cosa ha il suo colore in tutta la plancia (luci gialle, clima verde acqua, sicurezza rossa…). Spenta, tutte grigie")}
     <div class="gruppo">Assistente (la casella "Chiedi a Nexalia")</div>
     <label class="campo">Assistente<span>Vuoto = quello predefinito di Home Assistant (un modello AI, se l'hai configurato)</span><select id="edAgente"><option value="">Predefinito di Home Assistant</option>${agenti.map((id) => `<option value="${id}" ${ass.agente === id ? "selected" : ""}>${esc(nomeE(id))}</option>`).join("")}</select></label>
     ${interruttore(ass.voce, 'data-assist="voce"', "Leggi la risposta ad alta voce", "Usa la voce del dispositivo su cui apri la plancia")}
