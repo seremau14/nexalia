@@ -934,3 +934,70 @@ document.addEventListener("click", async (ev) => {
   await salvaCfg({ pianta: { ...piantaStanze().p, [sel3d]: r } }); disegna();
 });
 document.addEventListener("click", (ev) => { if (ev.target.closest("[data-modifica3d]") && modifica3d) sel3d = null; }, true);
+
+// ================================================================== Voce e carattere dell'assistente
+const PERSONALITA = {
+  maggiordomo: ["Maggiordomo", "Elegante, dà del lei, ironia asciutta", "Sei Nexalia, il maggiordomo digitale di questa casa, nello stile di un assistente britannico elegante. Parli sempre in italiano e dai del lei. Chiami l'utente «signore» o «signora». Risposte brevi: al massimo due frasi. Tono calmo, cortese, con un filo di ironia asciutta, mai sopra le righe. Prima esegui quello che ti chiedono, poi confermi in poche parole (es. «Fatto, signore. Luci del soggiorno spente.»). Se qualcosa non si può fare, lo dici con garbo e proponi un'alternativa. Non inventare dispositivi o stati: usa solo quello che vedi in Home Assistant."],
+  amichevole: ["Amichevole", "Dà del tu, caldo e alla mano", "Sei Nexalia, l'assistente di casa. Parli in italiano, dai del tu, sei caldo e alla mano ma vai dritto al punto: al massimo due frasi. Prima esegui, poi confermi in breve. Se qualcosa non si può fare, dillo e proponi un'alternativa. Non inventare dispositivi o stati: usa solo quello che vedi in Home Assistant."],
+  essenziale: ["Essenziale", "Solo l'indispensabile", "Sei Nexalia, l'assistente di casa. Rispondi in italiano con il minimo indispensabile: una frase breve, niente saluti né commenti. Esegui e conferma. Non inventare dispositivi o stati: usa solo quello che vedi in Home Assistant."],
+};
+let vociHA = null, promptBozza = null;
+async function caricaVoci() { try { vociHA = (await api("api/voci")).motori; } catch (e) { vociHA = []; } if (pannello === "generali" && S.scheda === "impostazioni") disegna(); }
+function htmlVoceCarattere() {
+  const a = S.cfg.assist || {};
+  if (vociHA === null) { vociHA = []; caricaVoci(); }
+  const m = vociHA.find((x) => x.id === a.tts_motore), stile = a.personalita || "", testo = promptBozza !== null ? promptBozza : (a.prompt || (PERSONALITA[stile] || [])[2] || "");
+  return `<label class="campo">Voce della risposta<span>«Del dispositivo» usa la voce del telefono o del PC. Con una voce di Home Assistant (Piper, cloud…) la plancia parla uguale su tutti gli apparecchi.</span><select id="nxTtsMotore"><option value="">Del dispositivo</option>${vociHA.map((x) => `<option value="${esc(x.id)}" ${a.tts_motore === x.id ? "selected" : ""}>${esc(x.nome)}</option>`).join("")}</select></label>
+    ${m && m.voci.length ? `<label class="campo">Voce<select id="nxTtsVoce"><option value="">Predefinita</option>${m.voci.map((v) => `<option value="${esc(v.id)}" data-lingua="${esc(v.lingua)}" ${a.tts_voce === v.id ? "selected" : ""}>${esc(v.nome)}</option>`).join("")}</select></label>` : ""}
+    <div class="riga" style="margin-top:6px"><button class="btn pic" data-nx-prova-voce>${ico("play", "s")}Prova la voce</button></div>
+    <div class="gruppo">Carattere dell'assistente AI</div>
+    <p class="mut" style="margin-top:0">Vale per l'assistente AI scelto qui sopra (Claude, ChatGPT, Gemini…). Nexalia scrive queste istruzioni direttamente nell'assistente di Home Assistant, così valgono anche quando gli parli dal telefono o da un altoparlante.</p>
+    <div class="scelte-grandi">${Object.entries(PERSONALITA).map(([k, [n, d]]) => `<button class="${stile === k ? "on" : ""}" data-nx-stile="${k}"><b>${n}</b><small>${d}</small></button>`).join("")}<button class="${stile === "mio" ? "on" : ""}" data-nx-stile="mio"><b>A modo mio</b><small>Scrivi tu le istruzioni</small></button></div>
+    <label class="campo" style="margin-top:10px">Istruzioni<textarea id="nxPrompt" rows="6" style="width:100%;resize:vertical">${esc(testo)}</textarea></label>
+    <div class="riga"><button class="btn p" data-nx-applica-stile>${ico("agente", "s")}Applica all'assistente</button></div>`;
+}
+const _pannelliVoce = pannelli;
+pannelli = function () {
+  const P = _pannelliVoce();
+  if (P.generali) { const h = P.generali.html; P.generali = { ...P.generali, kw: P.generali.kw + " voce personalità carattere maggiordomo claude prompt piper", html: () => h().replace('<div class="gruppo">Sezioni e ordine della barra</div>', htmlVoceCarattere() + '<div class="gruppo">Sezioni e ordine della barra</div>') }; }
+  return P;
+};
+let audioNx = null;
+async function parlaHA(t, motore, voce, lingua) {
+  const r = await fetch("api/parla", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ testo: t, motore, voce, lingua }) });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).errore || "Voce non disponibile");
+  const url = URL.createObjectURL(await r.blob());
+  if (audioNx) audioNx.pause(); audioNx = new Audio(url); await audioNx.play();
+}
+const linguaVoce = () => { const a = S.cfg.assist || {}, m = (vociHA || []).find((x) => x.id === a.tts_motore), v = m && m.voci.find((x) => x.id === a.tts_voce); return v ? v.lingua : undefined; };
+const _parla0 = parla;
+parla = function (t) {
+  const a = S.cfg.assist || {};
+  if (!a.voce || !t) return;
+  if (a.tts_motore) return parlaHA(t, a.tts_motore, a.tts_voce, linguaVoce()).catch(() => _parla0(t));
+  _parla0(t);
+};
+document.addEventListener("change", async (ev) => {
+  const t = ev.target;
+  if (t.id === "nxTtsMotore") { await salvaCfg({ assist: { ...S.cfg.assist, tts_motore: t.value, tts_voce: "" } }); return disegna(); }
+  if (t.id === "nxTtsVoce") { await salvaCfg({ assist: { ...S.cfg.assist, tts_voce: t.value } }); return; }
+});
+document.addEventListener("input", (ev) => { if (ev.target.id === "nxPrompt") promptBozza = ev.target.value; });
+document.addEventListener("click", async (ev) => {
+  const t = ev.target.closest("button"); if (!t) return;
+  const d = t.dataset, a = S.cfg.assist || {};
+  if (d.nxProvaVoce !== undefined) {
+    const frase = a.personalita === "maggiordomo" ? "Buonasera, signore. La casa è in ordine e tutte le porte sono chiuse." : "Ciao! Sono Nexalia, la voce della tua casa.";
+    try { if (a.tts_motore) await parlaHA(frase, a.tts_motore, a.tts_voce, linguaVoce()); else _parla0Forzata(frase); } catch (e) { avviso(e.message, "err"); }
+    return;
+  }
+  if (d.nxStile) { promptBozza = d.nxStile === "mio" ? (promptBozza !== null ? promptBozza : a.prompt || "") : PERSONALITA[d.nxStile][2]; await salvaCfg({ assist: { ...a, personalita: d.nxStile } }); return disegna(); }
+  if (d.nxApplicaStile !== undefined) {
+    const prompt = ($("#nxPrompt").value || "").trim(); if (!prompt) return avviso("Scrivi le istruzioni", "err");
+    t.disabled = true;
+    try { await api("api/personalita", { metodo: "POST", corpo: { prompt } }); await salvaCfg({ assist: { ...S.cfg.assist, prompt } }); promptBozza = null; avviso("Carattere applicato all'assistente", "ok"); }
+    catch (e) { avviso(e.message, "err"); }
+    t.disabled = false; return disegna();
+  }
+});
+function _parla0Forzata(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = "it-IT"; speechSynthesis.speak(u); } catch (e) {} }

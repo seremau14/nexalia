@@ -1,5 +1,9 @@
 # Novità
 
+## 1.7.0
+- Impostazioni › Assistente: la plancia può rispondere con una voce di Home Assistant (Piper o un servizio cloud), uguale su tutti gli apparecchi, con il tasto "Prova la voce".
+- Carattere dell'assistente AI: Maggiordomo, Amichevole, Essenziale o "A modo mio". Nexalia scrive le istruzioni direttamente nell'assistente AI di Home Assistant (Claude, ChatGPT, Gemini…).
+
 ## 1.6.3
 - Casa 3D, modifica: le stanze si ridimensionano da tutti e quattro i bordi e dai quattro angoli, con maniglie grandi e dentro la stanza (prima c'era solo un quadratino nell'angolo, spesso coperto dalla stanza accanto).
 - Passo di mezza cella, misura visibile mentre trascini e griglia di riferimento.

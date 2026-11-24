@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.6.3";
+const VERSIONE = "1.7.0";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -42,7 +42,7 @@ const CONFIG_BASE = {
   agente: { notifica: "", spegni_luci_uscita: false, avvisa_consumi: true, avvisa_finestre_pioggia: true },
   raccolta: { attiva: false, ora: "20:00", calendario: {} },   // calendario: {"1":"Organico", ...} giorno settimana 1-7 -> tipo (sera prima)
   aspetto: { nome_casa: "" },
-  assist: { agente: "", voce: false, nascondi: false },
+  assist: { agente: "", voce: false, nascondi: false, tts_motore: "", tts_voce: "", personalita: "", prompt: "" }, // voce di Home Assistant (Piper, cloud…) e carattere dell'assistente AI
   personalizza: {},      // {entity_id: {nome, icona, gruppo}}
   sezioni_ordine: [],
   generali: { admin: "", intestazione_fissa: true },
@@ -120,6 +120,30 @@ async function haRest(metodo, percorso, corpo) {
   if (!r.ok) throw new Error("Home Assistant: " + r.status + " " + (await r.text()).slice(0, 200));
   const t = r.headers.get("content-type") || "";
   return t.includes("json") ? r.json() : r.text();
+}
+
+// cambia le istruzioni (prompt) di un agente AI di Home Assistant passando dalla sua riconfigurazione, come si fa a mano
+async function scriviPrompt(agente, prompt) {
+  const reg = await wsChiama({ type: "config/entity_registry/get", entity_id: agente });
+  if (!reg || !reg.config_entry_id) throw new Error("Questo assistente non è un agente AI configurabile");
+  const val = (sch) => { const d = {}; for (const c of sch || []) { const v = c.description && c.description.suggested_value !== undefined ? c.description.suggested_value : c.default; if (v !== undefined) d[c.name] = v; } return d; };
+  let passo;
+  if (reg.config_subentry_id) {
+    const sub = (await wsChiama({ type: "config_entries/subentries/list", entry_id: reg.config_entry_id })).find((x) => x.subentry_id === reg.config_subentry_id) || {};
+    passo = await haRest("POST", "/api/config/config_entries/subentries/flow", { handler: [reg.config_entry_id, sub.subentry_type || "conversation"], subentry_id: reg.config_subentry_id });
+    for (let i = 0; i < 5 && passo.type === "form"; i++) {
+      const dati = val(passo.data_schema); if ((passo.data_schema || []).some((c) => c.name === "prompt")) dati.prompt = prompt;
+      passo = await haRest("POST", "/api/config/config_entries/subentries/flow/" + passo.flow_id, dati);
+    }
+  } else {
+    passo = await haRest("POST", "/api/config/config_entries/options/flow", { handler: reg.config_entry_id });
+    for (let i = 0; i < 5 && passo.type === "form"; i++) {
+      const dati = val(passo.data_schema); if ((passo.data_schema || []).some((c) => c.name === "prompt")) dati.prompt = prompt;
+      passo = await haRest("POST", "/api/config/config_entries/options/flow/" + passo.flow_id, dati);
+    }
+  }
+  if (!["create_entry", "abort"].includes(passo.type) || (passo.type === "abort" && passo.reason !== "reconfigure_successful")) throw new Error("Home Assistant non ha accettato le istruzioni (" + (passo.reason || passo.type) + ")");
+  return { esito: passo.type };
 }
 
 async function caricaRegistri() {
@@ -558,6 +582,43 @@ async function api(req, res, p) {
     const r = await wsChiama({ type: "conversation/process", text: String(b.testo || "").slice(0, 500), language: ha.config.lingua || "it", conversation_id: b.conversazione || undefined, agent_id: agente }, 60000);
     const sp = r && r.response && r.response.speech && r.response.speech.plain && r.response.speech.plain.speech;
     return json(res, { ok: true, risposta: sp || "Fatto.", conversazione: r.conversation_id });
+  }
+  // voci di Home Assistant: motori tts.* e le loro voci nella lingua della casa
+  if (p === "/api/voci" && req.method === "GET") {
+    const motori = Object.keys(ha.stati).filter((id) => id.startsWith("tts."));
+    const out = [];
+    for (const m of motori) {
+      let voci = [];
+      try {
+        const e = await wsChiama({ type: "tts/engine/get", engine_id: m });
+        const lingue = ((e.provider || {}).supported_languages || []).filter((l) => l.toLowerCase().startsWith((ha.config.lingua || "it").slice(0, 2)));
+        for (const l of lingue.slice(0, 3)) { const v = await wsChiama({ type: "tts/engine/voices", engine_id: m, language: l }); for (const x of (v.voices || [])) voci.push({ id: x.voice_id, nome: x.name, lingua: l }); }
+        if (!lingue.length) continue;
+      } catch (e) {}
+      out.push({ id: m, nome: (ha.stati[m].attributes || {}).friendly_name || m, voci });
+    }
+    return json(res, { ok: true, motori: out });
+  }
+  // fa parlare la plancia con la voce di Home Assistant: restituisce l'audio
+  if (p === "/api/parla" && req.method === "POST") {
+    const b = await corpo(req), a = config.assist || {};
+    const motore = /^tts\.[a-z0-9_]+$/.test(b.motore || a.tts_motore || "") ? (b.motore || a.tts_motore) : null;
+    if (!motore) return json(res, { ok: false, errore: "Nessuna voce di Home Assistant scelta" }, 400);
+    const voce = String(b.voce !== undefined ? b.voce : a.tts_voce || "");
+    const lingua = String(b.lingua || "") || undefined;
+    const r = await haRest("POST", "/api/tts_get_url", { engine_id: motore, message: String(b.testo || "").slice(0, 600), language: lingua, options: voce ? { voice: voce } : undefined });
+    const audio = await fetch(HA_HTTP + r.path, { headers: { authorization: "Bearer " + TOKEN } });
+    if (!audio.ok) return json(res, { ok: false, errore: "Audio non disponibile" }, 502);
+    res.writeHead(200, { "content-type": audio.headers.get("content-type") || "audio/mpeg", "cache-control": "no-store" });
+    return res.end(Buffer.from(await audio.arrayBuffer()));
+  }
+  // carattere dell'assistente: scrive le istruzioni nell'agente AI di Home Assistant (Anthropic, OpenAI, Google…)
+  if (p === "/api/personalita" && req.method === "POST") {
+    if (!puoConfigurare(req)) return json(res, { ok: false, errore: "Solo l'amministratore" }, 403);
+    const b = await corpo(req), agente = String(b.agente || (config.assist || {}).agente || "");
+    if (!/^conversation\.[a-z0-9_]+$/.test(agente)) return json(res, { ok: false, errore: "Scegli prima un assistente AI qui sopra" }, 400);
+    try { return json(res, { ok: true, ...(await scriviPrompt(agente, String(b.prompt || "").slice(0, 4000))) }); }
+    catch (e) { return json(res, { ok: false, errore: e.message }, 500); }
   }
   if (p === "/api/previsioni" && req.method === "GET") {
     const u = new URL(req.url, "http://x"); const id = u.searchParams.get("id"), tipo = u.searchParams.get("tipo") === "hourly" ? "hourly" : "daily";
