@@ -380,3 +380,33 @@ textarea{resize:vertical;font-family:ui-monospace,Menlo,monospace;font-size:13px
 .pannello .tessere{grid-template-columns:repeat(auto-fill,minmax(min(100%,190px),1fr))}
 .tess{min-width:0}
 @media (max-width:700px){body.compatte-auto .tessere,body.compatte .tessere{grid-template-columns:repeat(2,minmax(0,1fr))}body.compatte-auto .pannello .tessere,body.compatte .pannello .tessere{grid-template-columns:minmax(0,1fr)}}
+/* sezioni nuove */
+.tit h2 .ic{vertical-align:-4px;margin-right:4px;color:var(--blu)}
+.meteo-big{display:flex;align-items:center;gap:14px}
+.meteo-big .ic{color:var(--ambra)}
+.meteo-big b{font-size:44px;letter-spacing:-.03em}
+.meteo-big span{color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.previsioni{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:8px;margin-top:8px}
+.previsioni>div{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;background:var(--card2);border:1px solid var(--line)}
+.previsioni small{text-transform:capitalize;color:var(--mut)}
+.previsioni .ic{color:var(--ambra)}
+.previsioni span{color:var(--dim);font-size:13px}
+.batt-riga{display:grid;grid-template-columns:minmax(0,1fr) 120px 52px;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.batt-riga span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.batt-riga small{display:block;color:var(--dim);font-weight:400;font-size:12px}
+.batt-riga b{text-align:right}
+.barra-b{height:8px;border-radius:99px;background:var(--card2);overflow:hidden}
+.barra-b i{display:block;height:100%;background:var(--verde);border-radius:99px}
+.batt-riga.bassa .barra-b i{background:var(--rosso)}
+.batt-riga.bassa b{color:var(--rosso)}
+.voce-imp.spenta{opacity:.5}
+/* plancia a muro */
+body.muro .schede button:not(.on):not([data-scheda="impostazioni"]){display:none}
+body.muro .stato-ha span{display:none}
+#salvaschermo{position:fixed;inset:0;z-index:200;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;opacity:var(--luce,1);cursor:pointer}
+#salvaschermo[hidden]{display:none}
+.ss-ora{font-size:clamp(72px,18vw,200px);font-weight:700;letter-spacing:-.04em;line-height:1}
+.ss-data{font-size:clamp(18px,3vw,30px);text-transform:capitalize;color:#C9D2DB}
+.ss-meteo{display:flex;align-items:center;gap:8px;font-size:clamp(16px,2.4vw,24px);color:#C9D2DB;margin-top:10px}
+.ss-meteo .ic{color:var(--ambra)}
+.ss-tocca{position:absolute;bottom:28px;font-size:13px;color:#5F6B78}

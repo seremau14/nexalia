@@ -1,5 +1,15 @@
 # Novità
 
+## 1.3.0
+- Impostazioni ordinate per categorie: Plancia, Energia, Clima e acqua, Casa, Sicurezza, Avvisi, Alexa, Macchine e rete, con 52 pagine.
+- Nuove sezioni, ognuna con la sua pagina nell'editor (accendila e compare nella barra in alto): Batteria di accumulo, Veicoli, UPS, Clima, Temperatura, Meteo (con previsioni, alba e tramonto), Gestione termica, Piscina, Irrigazione, Piante, Acqua e gas, Luci, Finestre, Elettrodomestici, Musica, Radio (con le tue stazioni), Sport, Robot, Stampanti, Animali, Batterie, Salute, Prese, Varchi, Presenza, Apri porte e cancelli, Citofono e posta, Allerte, Agenda, Musica su Alexa, MiniPC e rete, Dispositivi non connessi.
+- Ogni sezione trova da sola le sue entità; puoi togliere quelle che non c'entrano, aggiungerne altre e scegliere le entità principali.
+- Le tue sezioni: crei sezioni tue con nome, icona ed entità.
+- A muro: per i tablet appesi, con pagina fissa, orologio di riposo e luminosità ridotta di notte.
+- Automazioni: tutte le automazioni di Home Assistant da accendere e spegnere.
+- Runtime: come sta girando la plancia.
+- La sezione Raccolta si chiama Rifiuti.
+
 ## 1.2.2
 - Sul telefono i popup (luci, prese, widget) non escono più dallo schermo.
 

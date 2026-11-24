@@ -438,6 +438,18 @@ function confermaReset() {
   finestra(`<div class="tit"><h2>Reset totale</h2><button class="btn pic" data-chiudi aria-label="Chiudi">${ico("chiudi", "s")}</button></div><p>Tutte le impostazioni di Nexalia tornano come appena installata: stanze, Casa 3D, home, widget, azioni, energia, raccolta. <b>La licenza resta attiva.</b></p><p class="mut">Se vuoi poter tornare indietro, scarica prima il backup.</p><label class="campo">Per confermare scrivi RESET<input type="text" id="nxReset" autocomplete="off"></label><div class="riga" style="margin-top:12px"><span class="spazio"></span><button class="btn" data-chiudi>Annulla</button><button class="btn r" data-nx-reset-ok>Azzera tutto</button></div>`);
 }
 
+function htmlAvvisi() {
+  const w = S.cfg.widget || {};
+  return `    <div class="gruppo">Avvisi personalizzati</div><p class="mut">Un avviso si accende quando un'entità ha lo stato o il valore che scegli (es. on, open, heat, 23.5, oppure &lt;20, &gt;30). Gli avvisi accesi finiscono nel widget "Avvisi personalizzati".</p>
+    ${(w.avvisi || []).map((a, i) => `<div class="voce-imp"><span class="emo">${esc(a.icona || "⚠️")}</span><div><b>${esc(a.nome || "Avviso")}</b><small>${esc({ batterie: "Batterie sotto il " + (a.valore || 20) + "%", allagamenti: "Sensori di allagamento", fumo: "Rilevatori di fumo e gas", personalizzato: (a.entita || "") + " = " + (a.valore || "on") }[a.tipo])}${avvisoAttivo(a).length ? " · ACCESO" : ""}</small></div><button class="btn pic r" data-nx-del="widget.avvisi" data-i="${i}" aria-label="Elimina">${ico("cestino", "s")}</button></div>`).join("")}
+    <div class="ed-box" style="margin-top:10px"><div class="griglia">
+      <label class="campo">Tipo<select id="nxAvvTipo">${[["batterie", "Batterie (%)"], ["allagamenti", "Allagamenti"], ["fumo", "Rilevatori di fumo e gas"], ["personalizzato", "Personalizzato"]].map(([k, n]) => `<option value="${k}" ${nuovoAvv.tipo === k ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label class="campo">Nome dell'avviso<input type="text" id="nxAvvNome" value="${esc(nuovoAvv.nome)}" placeholder="Es. Finestre aperte"></label>
+      ${nuovoAvv.tipo === "personalizzato" ? `<label class="campo">Entità<input type="text" id="nxAvvEnt" list="dl-tutte" value="${esc(nuovoAvv.entita)}" placeholder="binary_sensor.finestra_cucina" autocomplete="off"></label>` : ""}
+      ${["personalizzato", "batterie"].includes(nuovoAvv.tipo) ? `<label class="campo">${nuovoAvv.tipo === "batterie" ? "Soglia (%)" : "Stato o valore"}<input type="text" id="nxAvvVal" value="${esc(nuovoAvv.valore)}" placeholder="${nuovoAvv.tipo === "batterie" ? "20" : "on"}"></label>` : ""}
+      <label class="campo">Icona<input type="text" id="nxAvvIco" value="${esc(nuovoAvv.icona)}" maxlength="4" placeholder="⚠️ 💧 🌡️"></label>
+    </div><div class="riga" style="margin-top:12px"><button class="btn p pic" data-nx-add-avviso>＋ Aggiungi avviso</button></div></div>`;
+}
 // ------------------------------------------------------------------ pagine dell'editor
 let nuovaAz = { tipo: "toggle", icona: "play", nome: "", entita: "", lista: [], conferma: "" };
 let nuovoAvv = { tipo: "personalizzato", entita: "", nome: "", icona: "⚠️", valore: "" };
@@ -513,15 +525,7 @@ pannelli = function () {
     ${interruttore(w.popup_avvisi !== false, 'data-nx-tg="widget.popup_avvisi"', "Avvisi personalizzati a finestra", "Quando un avviso si accende la plancia lo apre da sola, mai sopra una finestra già aperta")}
     <div class="gruppo">Widget in home</div><p class="mut">Accendi i widget che vuoi vedere nel blocco "Widget" della home e scegli l'ordine.</p>
     ${ow.map((x, i) => { const c = calcolaWidget(x.k); return `<div class="voce-imp">${ico(WIDGET[x.k].ic)}<div><b>${WIDGET[x.k].nome}</b><small>${esc(c.v)}${c.sub ? " · " + esc(c.sub) : ""}</small></div>${suGiu("widget", x.k, i, ow.length)}<button class="tg ${x.on ? "on" : ""}" data-nx-widget-tg="${x.k}" aria-label="Mostra ${esc(WIDGET[x.k].nome)}"></button></div>`; }).join("")}
-    <div class="gruppo">Avvisi personalizzati</div><p class="mut">Un avviso si accende quando un'entità ha lo stato o il valore che scegli (es. on, open, heat, 23.5, oppure &lt;20, &gt;30). Gli avvisi accesi finiscono nel widget "Avvisi personalizzati".</p>
-    ${(w.avvisi || []).map((a, i) => `<div class="voce-imp"><span class="emo">${esc(a.icona || "⚠️")}</span><div><b>${esc(a.nome || "Avviso")}</b><small>${esc({ batterie: "Batterie sotto il " + (a.valore || 20) + "%", allagamenti: "Sensori di allagamento", fumo: "Rilevatori di fumo e gas", personalizzato: (a.entita || "") + " = " + (a.valore || "on") }[a.tipo])}${avvisoAttivo(a).length ? " · ACCESO" : ""}</small></div><button class="btn pic r" data-nx-del="widget.avvisi" data-i="${i}" aria-label="Elimina">${ico("cestino", "s")}</button></div>`).join("")}
-    <div class="ed-box" style="margin-top:10px"><div class="griglia">
-      <label class="campo">Tipo<select id="nxAvvTipo">${[["batterie", "Batterie (%)"], ["allagamenti", "Allagamenti"], ["fumo", "Rilevatori di fumo e gas"], ["personalizzato", "Personalizzato"]].map(([k, n]) => `<option value="${k}" ${nuovoAvv.tipo === k ? "selected" : ""}>${n}</option>`).join("")}</select></label>
-      <label class="campo">Nome dell'avviso<input type="text" id="nxAvvNome" value="${esc(nuovoAvv.nome)}" placeholder="Es. Finestre aperte"></label>
-      ${nuovoAvv.tipo === "personalizzato" ? `<label class="campo">Entità<input type="text" id="nxAvvEnt" list="dl-tutte" value="${esc(nuovoAvv.entita)}" placeholder="binary_sensor.finestra_cucina" autocomplete="off"></label>` : ""}
-      ${["personalizzato", "batterie"].includes(nuovoAvv.tipo) ? `<label class="campo">${nuovoAvv.tipo === "batterie" ? "Soglia (%)" : "Stato o valore"}<input type="text" id="nxAvvVal" value="${esc(nuovoAvv.valore)}" placeholder="${nuovoAvv.tipo === "batterie" ? "20" : "on"}"></label>` : ""}
-      <label class="campo">Icona<input type="text" id="nxAvvIco" value="${esc(nuovoAvv.icona)}" maxlength="4" placeholder="⚠️ 💧 🌡️"></label>
-    </div><div class="riga" style="margin-top:12px"><button class="btn p pic" data-nx-add-avviso>＋ Aggiungi avviso</button></div></div>`; } };
+    ${htmlAvvisi()}`; } };
   P.azioni = { cat: "plancia", ic: "play", tit: "Azioni", kw: "azioni rapide popup luci prese clima antifurto lavatrice toggle script scena conferma", html: () => {
     const az = S.cfg.azioni || [];
     const fil = AZ_ENT[nuovaAz.tipo];
