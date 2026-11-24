@@ -141,7 +141,7 @@ function vPersoneHome() {
   if (!pp.length) return "";
   const dove = (id) => { const v = st(id).state; return v === "home" ? "In casa" : v === "not_home" ? "Fuori" : v; };
   const da = (id) => { const m = Math.round((Date.now() - new Date(st(id).last_changed)) / 60000); return m < 60 ? m + " min fa" : m < 1440 ? Math.round(m / 60) + " ore fa" : Math.round(m / 1440) + " giorni fa"; };
-  return `<section class="persone-home">${pp.map((id, i) => { const foto = attr(id, "entity_picture"); return `<div class="persona-c ${st(id).state === "home" ? "casa" : ""}"><div class="avatar" style="--c:${COLORI[i % COLORI.length]}">${foto ? `<img src="${esc(foto)}" alt="">` : esc(nomeE(id).slice(0, 1))}</div><div><b>${esc(nomeE(id))}</b><span class="badge ${st(id).state === "home" ? "casa" : "fuori"}">${esc(dove(id))}</span><small>${da(id)}</small></div></div>`; }).join("")}</section>`;
+  return `<section class="persone-home">${pp.map((id, i) => { const foto = attr(id, "entity_picture"); const el = (((S.cfg.sez_gen || {}).persone || {}).elementi || []).find((x) => x.persona === id) || {}; const extra = [el.batteria && st(el.batteria) ? "📱 " + testoStato(el.batteria) : "", el.orologio && st(el.orologio) ? "⌚ " + testoStato(el.orologio) : "", st(id).state !== "home" && el.rientro && st(el.rientro) ? "a casa in " + testoStato(el.rientro) : st(id).state !== "home" && el.distanza && st(el.distanza) ? testoStato(el.distanza) + " da casa" : ""].filter(Boolean).join(" · "); return `<div class="persona-c ${st(id).state === "home" ? "casa" : ""}"><div class="avatar" style="--c:${el.colore || COLORI[i % COLORI.length]}">${foto ? `<img src="${esc(foto)}" alt="">` : esc((el.nome || nomeE(id)).slice(0, 1))}</div><div><b>${esc(el.nome || nomeE(id))}</b><span class="badge ${st(id).state === "home" ? "casa" : "fuori"}">${esc(dove(id))}</span><small>${da(id)}${extra ? " · " + esc(extra) : ""}</small></div></div>`; }).join("")}</section>`;
 }
 
 // ------------------------------------------------------------------ widget
@@ -577,7 +577,7 @@ document.addEventListener("click", async (ev) => {
     await salvaCfg({ aspetto: { nome_casa: $("#edNome").value.trim().slice(0, 30) }, generali: { ...(S.cfg.generali || {}), admin } }); await carica(); return avviso("Salvato", "ok");
   }
   if (d.nxChiosco !== undefined) { localStorage.setItem("nx_chiosco", localStorage.getItem("nx_chiosco") === "1" ? "0" : "1"); applicaChiosco(); return disegna(); }
-  if (d.nxTg) { const def = ["generali.intestazione_fissa", "widget.popup_avvisi"].includes(d.nxTg); const v = leggiCfg(d.nxTg); await impostaCfg(d.nxTg, !(v === undefined ? def : v)); applicaGenerali(); return disegna(); }
+  if (d.nxTg) { const def = ["generali.intestazione_fissa", "widget.popup_avvisi"].includes(d.nxTg); const v = leggiCfg(d.nxTg); await impostaCfg(d.nxTg, !(v === undefined ? def : v)); applicaGenerali(); disegnaSchede(); return disegna(); }
   if (d.nxSet) { await impostaCfg(d.nxSet, d.v); return disegna(); }
   if (d.nxLista) { const l = [...(leggiCfg(d.nxLista) || [])]; const i = l.indexOf(d.v); if (i >= 0) l.splice(i, 1); else l.push(d.v); await impostaCfg(d.nxLista, l); return disegna(); }
   if (d.nxSvuota) { await impostaCfg(d.nxSvuota, ""); return disegna(); }
@@ -623,7 +623,7 @@ function leggiNuovaAz() {
 }
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
-  if (t.dataset && t.dataset.nxCfg) { let v = t.value.trim(); if (t.dataset.num !== undefined) v = Number(v); await impostaCfg(t.dataset.nxCfg, v); return disegna(); }
+  if (t.dataset && t.dataset.nxCfg) { let v = t.value.trim(); if (t.dataset.num !== undefined) v = v === "" ? "" : Number(v); await impostaCfg(t.dataset.nxCfg, v); return disegna(); }
   if (t.id === "nxAzTipo") { leggiNuovaAz(); nuovaAz.tipo = t.value; return disegna(); }
   if (t.id === "nxAvvTipo") { nuovoAvv = { ...nuovoAvv, tipo: t.value, nome: $("#nxAvvNome").value, icona: $("#nxAvvIco").value }; return disegna(); }
 });

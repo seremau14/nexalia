@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.3.2";
+const VERSIONE = "1.4.0";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -168,6 +168,7 @@ function collegaHA() {
           if (new_state) ha.stati[entity_id] = new_state; else delete ha.stati[entity_id];
           inviaSSE("stato", { id: entity_id, s: new_state });
           try { agenteCambio(entity_id, old_state, new_state); } catch (er) { log("Agente:", er.message); }
+          try { if (old_state && new_state && old_state.state !== new_state.state) avvisiAlexa(entity_id, new_state); } catch (er) {}
         } else { clearTimeout(ha.tRicarica); ha.tRicarica = setTimeout(() => caricaRegistri().catch(() => {}), 1500); }
       }
     }
@@ -202,7 +203,8 @@ function areaDi(id) {
 async function servizio(dom, srv, dati) {
   return wsChiama({ type: "call_service", domain: dom, service: srv, service_data: dati || {} });
 }
-async function notifica(titolo, testo) {
+async function notifica(titolo, testo, categoria = "casa") {
+  annunciaEcho(testo || titolo, categoria);
   const n = config.agente.notifica;
   try {
     if (n && n.startsWith("notify.")) await servizio("notify", n.slice(7), { title: titolo, message: testo });
@@ -219,7 +221,7 @@ function agenteCambio(id, vecchio, nuovo) {
   if (!nuovo || !vecchio || vecchio.state === nuovo.state) return;
   const d = dominio(id), c = classe(id), stanza = areaDi(id), s = nuovo.state;
   if (d === "person") {
-    if (s === "home") annota({ icona: "persone", titolo: nome(id) + " è rientrato a casa", stanza: "Casa" });
+    if (s === "home") { annota({ icona: "persone", titolo: nome(id) + " è rientrato a casa", stanza: "Casa" }); annunciaEcho(nome(id) + " è arrivato a casa", "persone"); }
     else if (vecchio.state === "home") {
       annota({ icona: "persone", titolo: nome(id) + " è uscito", testo: s !== "not_home" ? "Ora è in " + s : "", stanza: "Casa" });
       const tutti = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("person."));
@@ -227,18 +229,18 @@ function agenteCambio(id, vecchio, nuovo) {
     }
   } else if (d === "binary_sensor" && PERICOLI[c] && s === "on") {
     const v = annota({ tipo: "avviso", icona: "allerta", titolo: "Rilevato " + PERICOLI[c] + (stanza ? " in " + stanza.toLowerCase() : ""), testo: nome(id), stanza });
-    notifica("Nexalia – attenzione", v.titolo);
+    notifica("Nexalia – attenzione", v.titolo, "urgenti");
   } else if (d === "binary_sensor" && APERTURE.includes(c) && s === "on" && !accessorio(id)) {
     const allarme = Object.values(ha.stati).find((x) => x.entity_id.startsWith("alarm_control_panel.") && x.state.startsWith("armed"));
     if (allarme) {
       const v = annota({ tipo: "avviso", icona: "sicurezza", titolo: nome(id) + " aperta con l'allarme inserito", stanza });
-      notifica("Nexalia – allarme", v.titolo);
+      notifica("Nexalia – allarme", v.titolo, "sicurezza");
     } else if (config.agente.avvisa_finestre_pioggia && c === "window" && piove()) {
       annota({ tipo: "avviso", icona: "goccia", titolo: "Sta piovendo e " + nome(id).toLowerCase() + " è aperta", stanza });
     }
   } else if (d === "alarm_control_panel") {
     const t = { armed_away: "Allarme inserito (totale)", armed_home: "Allarme inserito (in casa)", armed_night: "Allarme inserito (notte)", disarmed: "Allarme disinserito", triggered: "ALLARME SCATTATO" }[s];
-    if (t) { const v = annota({ tipo: s === "triggered" ? "avviso" : "info", icona: "sicurezza", titolo: t }); if (s === "triggered") notifica("Nexalia – allarme", v.titolo + ": " + nome(id)); }
+    if (t) { const v = annota({ tipo: s === "triggered" ? "avviso" : "info", icona: "sicurezza", titolo: t }); if (s === "triggered") notifica("Nexalia – allarme", v.titolo + ": " + nome(id), "urgenti"); else annunciaEcho(t, "sicurezza"); }
   } else if (d === "weather" && config.agente.avvisa_finestre_pioggia && ["rainy", "pouring", "lightning-rainy"].includes(s)) {
     const aperte = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("binary_sensor.") && x.attributes.device_class === "window" && x.state === "on" && !accessorio(x.entity_id));
     if (aperte.length) { const v = annota({ tipo: "avviso", icona: "goccia", titolo: "Inizia a piovere: " + aperte.length + (aperte.length === 1 ? " finestra aperta" : " finestre aperte"), testo: aperte.map((x) => x.attributes.friendly_name).join(", ") }); notifica("Nexalia", v.titolo); }
@@ -288,6 +290,79 @@ async function controllaConsumi() {
     notifica("Nexalia", v.titolo);
   }
 }
+
+// ---------------------------------------------------------------- Alexa: gli Echo dicono le notifiche
+const sezX = (id) => ((config.sez_gen || {})[id] || {});
+const minuti = (hhmm) => { const m = String(hhmm || "").match(/^(\d{1,2}):(\d{2})$/); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+function inFascia(da, a, ora) { const x = minuti(da), y = minuti(a), z = minuti(ora); if (x == null || y == null || z == null) return false; return x <= y ? z >= x && z < y : z >= x || z < y; }
+async function diQualcosa(testo, echi, modo) {
+  const lista = (echi || []).filter((e) => ha.stati[e]);
+  if (!lista.length || !testo) return;
+  try { await servizio("notify", "alexa_media", { message: testo, target: lista, data: { type: modo === "voce" ? "tts" : "announce" } }); }
+  catch (e) { log("Echo non raggiungibili:", e.message); }
+}
+function annunciaEcho(testo, categoria) {
+  const x = sezX("notifiche").extra || {};
+  if (!x.attiva || !(x.categorie || []).includes(categoria)) return;
+  if (x.notte && categoria !== "urgenti" && inFascia(x.notte_da || "23:00", x.notte_a || "07:00", adesso().hhmm)) return;
+  diQualcosa(testo, x.echi, x.modo);
+}
+// avvisi personalizzati degli Echo: a orario o quando un'entità cambia
+const avvisiDetti = new Set();
+function avvisiAlexa(id, nuovo) {
+  const av = (sezX("avvisi_alexa").extra || {}).avvisi || [], x = sezX("notifiche").extra || {};
+  for (const a of av) {
+    if (a.tipo !== "cambio" || a.entita !== id || !nuovo) continue;
+    if (String(nuovo.state) !== String(a.valore || "on")) continue;
+    diQualcosa(a.testo, (a.echi && a.echi.length) ? a.echi : x.echi, x.modo);
+  }
+}
+// piscina: filtrazione giornaliera; irrigazione: programma
+const irrigazioneInCorso = new Set();
+async function annaffia(motivo) {
+  const ir = sezX("irrigazione"), zone = (ir.elementi || []).filter((z) => z.entita && ha.stati[z.entita]);
+  if (!zone.length || irrigazioneInCorso.size) return;
+  annota({ icona: "goccia", titolo: "Irrigazione partita", testo: motivo, stanza: "Giardino" });
+  for (const z of zone) {
+    irrigazioneInCorso.add(z.entita);
+    const d = dominio(z.entita);
+    try { await servizio(d === "valve" ? "valve" : "homeassistant", d === "valve" ? "open_valve" : "turn_on", { entity_id: z.entita }); } catch (e) {}
+    await new Promise((r) => setTimeout(r, Math.max(1, Number(z.minuti) || 10) * 60000));
+    try { await servizio(d === "valve" ? "valve" : "homeassistant", d === "valve" ? "close_valve" : "turn_off", { entity_id: z.entita }); } catch (e) {}
+    irrigazioneInCorso.delete(z.entita);
+  }
+  annota({ tipo: "fatto", icona: "goccia", titolo: "Irrigazione finita", stanza: "Giardino" });
+}
+let ultimoAutoIrriga = "";
+setInterval(() => {
+  if (!ha.pronto) return;
+  const { hhmm, data: oggi, giorno } = adesso();
+  // avvisi Alexa a orario
+  for (const a of (sezX("avvisi_alexa").extra || {}).avvisi || []) {
+    if (a.tipo !== "orario" || a.ora !== hhmm) continue;
+    if ((a.giorni || []).length && !a.giorni.map(Number).includes(giorno)) continue;
+    const k = oggi + hhmm + a.testo; if (avvisiDetti.has(k)) continue; avvisiDetti.add(k);
+    diQualcosa(a.testo, (a.echi && a.echi.length) ? a.echi : (sezX("notifiche").extra || {}).echi, (sezX("notifiche").extra || {}).modo);
+  }
+  // piscina
+  for (const v of sezX("piscina").elementi || []) {
+    if (!v.filtra || !v.pompa || !ha.stati[v.pompa] || minuti(v.ora_inizio) == null) continue;
+    const t = numero(v.temperatura), ore = v.ore_auto && t != null ? Math.max(2, Math.min(24, Math.round(t / 2))) : Number(v.ore) || 8;
+    const inizio = minuti(v.ora_inizio), fine = (inizio + ore * 60) % 1440, ora = minuti(hhmm);
+    if (ora === inizio) { servizio("homeassistant", "turn_on", { entity_id: v.pompa }).catch(() => {}); annota({ icona: "goccia", titolo: "Filtrazione " + (v.nome || "piscina") + " avviata", testo: ore + " ore" }); }
+    if (ora === fine) { servizio("homeassistant", "turn_off", { entity_id: v.pompa }).catch(() => {}); annota({ icona: "goccia", titolo: "Filtrazione " + (v.nome || "piscina") + " finita" }); }
+  }
+  // irrigazione
+  const ir = sezX("irrigazione").extra || {};
+  if (ir.attivo) {
+    const umid = numero(ir.umidita_suolo), prob = numero(ir.prob_pioggia);
+    if ((ir.orari || []).includes(hhmm)) {
+      if (umid != null && ir.salta_sopra !== "" && ir.salta_sopra != null && umid >= Number(ir.salta_sopra)) annota({ icona: "goccia", titolo: "Irrigazione saltata", testo: "Terreno già bagnato (" + Math.round(umid) + "%)" });
+      else if (prob != null && prob >= (Number(ir.prob_max) || 70)) annota({ icona: "goccia", titolo: "Irrigazione saltata", testo: "Probabilità di pioggia " + Math.round(prob) + "%" });
+      else annaffia("Programma delle " + hhmm);
+    } else if (umid != null && ir.avvia_sotto !== "" && ir.avvia_sotto != null && umid < Number(ir.avvia_sotto) && ultimoAutoIrriga !== oggi) { ultimoAutoIrriga = oggi; annaffia("Terreno secco (" + Math.round(umid) + "%)"); }
+  }
+}, 30000);
 
 // promemoria raccolta + batterie, ogni minuto
 let ultimoPromemoria = "", ultimoControlloBatterie = "";
@@ -481,6 +556,30 @@ async function api(req, res, p) {
     const r = await wsChiama({ type: "conversation/process", text: String(b.testo || "").slice(0, 500), language: ha.config.lingua || "it", conversation_id: b.conversazione || undefined, agent_id: agente }, 60000);
     const sp = r && r.response && r.response.speech && r.response.speech.plain && r.response.speech.plain.speech;
     return json(res, { ok: true, risposta: sp || "Fatto.", conversazione: r.conversation_id });
+  }
+  if (p === "/api/previsioni" && req.method === "GET") {
+    const u = new URL(req.url, "http://x"); const id = u.searchParams.get("id"), tipo = u.searchParams.get("tipo") === "hourly" ? "hourly" : "daily";
+    if (!/^weather\.[a-z0-9_]+$/.test(id || "")) return json(res, { ok: false }, 400);
+    try { const r = await wsChiama({ type: "call_service", domain: "weather", service: "get_forecasts", service_data: { type: tipo }, target: { entity_id: id }, return_response: true }); return json(res, { ok: true, previsioni: ((r.response || {})[id] || {}).forecast || [] }); }
+    catch (e) { return json(res, { ok: false, errore: e.message }); }
+  }
+  if (p === "/api/calendario" && req.method === "GET") {
+    const u = new URL(req.url, "http://x"); const id = u.searchParams.get("id"), giorni = Math.min(60, Number(u.searchParams.get("giorni") || 14));
+    if (!/^calendar\.[a-z0-9_]+$/.test(id || "")) return json(res, { ok: false }, 400);
+    try { const da = new Date(), a = new Date(Date.now() + giorni * 86400000); const ev = await haRest("GET", `/api/calendars/${id}?start=${encodeURIComponent(da.toISOString())}&end=${encodeURIComponent(a.toISOString())}`); return json(res, { ok: true, eventi: (ev || []).slice(0, 50).map((e) => ({ titolo: e.summary, inizio: e.start && (e.start.dateTime || e.start.date), fine: e.end && (e.end.dateTime || e.end.date), luogo: e.location || "" })) }); }
+    catch (e) { return json(res, { ok: false, errore: e.message }); }
+  }
+  if (p === "/api/todo" && req.method === "GET") {
+    const u = new URL(req.url, "http://x"); const id = u.searchParams.get("id");
+    if (!/^todo\.[a-z0-9_]+$/.test(id || "")) return json(res, { ok: false }, 400);
+    try { const r = await wsChiama({ type: "todo/item/list", entity_id: id }); return json(res, { ok: true, voci: (r.items || []).map((x) => ({ uid: x.uid, testo: x.summary, fatto: x.status === "completed" })) }); }
+    catch (e) { return json(res, { ok: false, errore: e.message }); }
+  }
+  if (p === "/api/annaffia" && req.method === "POST") { if (irrigazioneInCorso.size) return json(res, { ok: false, errore: "L'irrigazione è già in corso" }); annaffia("Avviata a mano dalla plancia"); return json(res, { ok: true }); }
+  if (p === "/api/annuncio" && req.method === "POST") {
+    const b = await corpo(req); const x = sezX("notifiche").extra || {};
+    await diQualcosa(String(b.testo || "Prova di Nexalia").slice(0, 300), (b.echi && b.echi.length) ? b.echi : x.echi, x.modo);
+    return json(res, { ok: true });
   }
   if (p === "/api/storico" && req.method === "GET") {
     const u = new URL(req.url, "http://x"); const id = u.searchParams.get("id"); const ore = Math.min(24 * 31, Number(u.searchParams.get("ore") || 24));

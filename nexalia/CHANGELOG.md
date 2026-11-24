@@ -1,5 +1,16 @@
 # Novità
 
+## 1.4.0
+- Barra rapida in fondo con le icone delle sezioni preferite: si accende, si spegne e si sceglie quali tasti mettere e in che ordine (Impostazioni › Impostazioni). In alto resta solo l'ingranaggio delle impostazioni; le sezioni in alto si possono rimettere.
+- Le pagine delle impostazioni hanno le caselle complete di ogni sezione: più UPS (stato NUT, rete, autonomia), più piscine (pH e cloro con limiti, filtrazione giornaliera automatica), zone e programma dell'irrigazione (salta col terreno bagnato o la pioggia probabile, parte da sola col terreno secco), veicoli (auto o moto, elettrica/termica/ibrida, batteria, autonomia, ricarica, gomme, portiere, EVCC e wallbox), unità clima con tasto rapido, temperature per stanza con associazione automatica, impianti di gestione termica (solare, scaldabagno, caldaia, stufa a pellet), piante, contatori acqua e gas, finestre e tapparelle, elettrodomestici con soglia «in funzione», stampanti, robot, animali, acquari e terrari, persone con telefono e orologio, prese «si vedono ma non si comandano», telecamere, aperture con conferma, citofoni e cassette della posta, calendari e liste, nodi del MiniPC.
+- Meteo: previsioni ora per ora e dei prossimi giorni, la tua stazione (trova i sensori da sola), radar pioggia e ordine dei blocchi.
+- Allerte: terremoti, protezione civile, fulmini, pollini, comfort termico, voli sopra casa, scioperi, treni e qualità dell'aria.
+- Agenda con gli eventi dei prossimi 14 giorni e le liste delle cose da fare.
+- Radio: cerca fra le radio vicine, le più ascoltate o per nome e salva le preferite.
+- Salute con l'anello dei passi e le misure.
+- Alexa: gli Echo dicono le notifiche (urgenti, sicurezza, casa, persone) con il silenzio di notte, e avvisi personalizzati a orario o quando cambia qualcosa.
+- Dispositivi non connessi: ricerca e dispositivi da ignorare.
+
 ## 1.3.2
 - Dispositivi non connessi contati per dispositivo (non per singola entità), con marca, modello, stanza e da quando non rispondono.
 - Apri porte e cancelli: niente più falsi riconoscimenti come la "echo cancellation" degli Echo.
