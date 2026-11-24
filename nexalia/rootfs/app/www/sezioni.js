@@ -859,3 +859,78 @@ document.addEventListener("click", async (ev) => {
   }
 });
 document.addEventListener("input", (ev) => { if (ev.target.id === "nxRaccTipo") tipoRaccNuovo = ev.target.value; });
+
+// ================================================================== Casa 3D: ridimensionare le stanze è più facile
+// maniglie su tutti i lati e gli angoli, passo di mezza cella, misura mentre trascini, e una barra con i tasti per chi preferisce i numeri
+let sel3d = null;
+const PASSO3D = 0.5;
+const tondo3d = (v) => Math.round(v / PASSO3D) * PASSO3D;
+const _vCasa3dR = vCasa3d;
+vCasa3d = function () {
+  let h = _vCasa3dR();
+  if (!modifica3d) return h;
+  h = h.replace("Trascina stanze e dispositivi. L'angolo blu ridimensiona la stanza.", "Trascina una stanza per spostarla, i bordi e gli angoli blu per cambiarne le misure.");
+  h = h.replace(/<span class="maniglia" data-maniglia="([^"]*)"><\/span>/g, (m, id) => ["n", "s", "e", "w", "ne", "nw", "se", "sw"].map((l) => `<span class="man3d man-${l}" data-maniglia="${id}" data-lato="${l}"></span>`).join("") + `<span class="misura3d"></span>`);
+  if (sel3d) h = h.replace(`data-st3d="${sel3d}"`, `data-st3d="${sel3d}" data-sel="1"`);
+  const r = sel3d && piantaStanze().p[sel3d], s = sel3d && stanze().find((x) => x.id === sel3d);
+  const barra = r && s ? `<div class="barra3d"><b>${esc(s.nome)}</b><span class="dim">${fmt1(r.w)} × ${fmt1(r.h)}</span>
+      <span class="g3d">Larghezza <button class="btn pic" data-p3d="w|-1">−</button><button class="btn pic" data-p3d="w|1">＋</button></span>
+      <span class="g3d">Profondità <button class="btn pic" data-p3d="h|-1">−</button><button class="btn pic" data-p3d="h|1">＋</button></span>
+      <span class="g3d">Sposta <button class="btn pic" data-p3d="x|-1" aria-label="A sinistra">←</button><button class="btn pic" data-p3d="y|-1" aria-label="Su">↑</button><button class="btn pic" data-p3d="y|1" aria-label="Giù">↓</button><button class="btn pic" data-p3d="x|1" aria-label="A destra">→</button></span></div>`
+    : `<div class="barra3d dim">Tocca una stanza per sceglierla. Trascina un bordo o un angolo blu per cambiarne le misure, oppure usa i tasti che compaiono qui.</div>`;
+  return h.replace('<div class="c3d-scena modifica"', barra + '<div class="c3d-scena modifica"');
+};
+dopoCasa3d = function () {
+  const scena = $("#scena3d"); if (!scena) return;
+  let trasc = null;
+  scena.onpointerdown = (e) => {
+    const pin = e.target.closest("[data-pin]"), man = e.target.closest("[data-maniglia]"), stz = e.target.closest("[data-st3d]");
+    if (!modifica3d) { if (pin) return; trasc = { tipo: "ruota", x0: e.clientX, y0: e.clientY, rz: vista3d.rz, rx: vista3d.rx }; }
+    else if (pin) trasc = { tipo: "pin", el: pin, box: pin.parentElement.getBoundingClientRect() };
+    else if (man) { const id = man.dataset.maniglia; trasc = { tipo: "dim", lato: man.dataset.lato, id, r: { ...piantaStanze().p[id] }, x0: e.clientX, y0: e.clientY, el: man.parentElement }; }
+    else if (stz) { const id = stz.dataset.st3d; trasc = { tipo: "sposta", id, r: { ...piantaStanze().p[id] }, x0: e.clientX, y0: e.clientY, el: stz }; }
+    else if (sel3d) { sel3d = null; return disegna(); }
+    if (trasc) { scena.setPointerCapture(e.pointerId); e.preventDefault(); if (trasc.el) trasc.el.classList.add("attiva"); }
+  };
+  scena.onpointermove = (e) => {
+    if (!trasc) return;
+    const piano = $("#piano3d"), z = vista3d.z;
+    if (trasc.tipo === "ruota") {
+      vista3d.rz = trasc.rz + (e.clientX - trasc.x0) * 0.3;
+      if (vista3d.rx) vista3d.rx = Math.max(20, Math.min(70, trasc.rx - (e.clientY - trasc.y0) * 0.2));
+      piano.style.transform = `scale(${z}) rotateX(${vista3d.rx}deg) rotateZ(${vista3d.rz}deg)`; return;
+    }
+    if (trasc.tipo === "pin") {
+      const x = Math.max(5, Math.min(95, ((e.clientX - trasc.box.left) / trasc.box.width) * 100)), y = Math.max(8, Math.min(92, ((e.clientY - trasc.box.top) / trasc.box.height) * 100));
+      trasc.el.style.left = x + "%"; trasc.el.style.top = y + "%"; trasc.pos = { x: Math.round(x), y: Math.round(y) }; return;
+    }
+    const dx = tondo3d((e.clientX - trasc.x0) / (CELLA * z)), dy = tondo3d((e.clientY - trasc.y0) / (CELLA * z)), r = { ...trasc.r }, MIN = 1;
+    if (Math.abs(e.clientX - trasc.x0) + Math.abs(e.clientY - trasc.y0) > 4) trasc.mosso = true;
+    if (trasc.tipo === "sposta") { r.x = Math.max(0, r.x + dx); r.y = Math.max(0, r.y + dy); }
+    else {
+      const l = trasc.lato;
+      if (l.includes("e")) r.w = Math.max(MIN, trasc.r.w + dx);
+      if (l.includes("s")) r.h = Math.max(MIN, trasc.r.h + dy);
+      if (l.includes("w")) { const nx = Math.max(0, Math.min(trasc.r.x + trasc.r.w - MIN, trasc.r.x + dx)); r.w = trasc.r.w + (trasc.r.x - nx); r.x = nx; }
+      if (l.includes("n")) { const ny = Math.max(0, Math.min(trasc.r.y + trasc.r.h - MIN, trasc.r.y + dy)); r.h = trasc.r.h + (trasc.r.y - ny); r.y = ny; }
+    }
+    Object.assign(trasc.el.style, { left: r.x * CELLA + "px", top: r.y * CELLA + "px", width: r.w * CELLA + "px", height: r.h * CELLA + "px" });
+    const m = trasc.el.querySelector(".misura3d"); if (m) m.textContent = `${fmt1(r.w)} × ${fmt1(r.h)}`;
+    trasc.nuovo = r;
+  };
+  const fine = () => {
+    if (!trasc) return;
+    const t = trasc; trasc = null; if (t.el) t.el.classList.remove("attiva");
+    if (t.tipo === "pin" && t.pos) return salvaCfg({ posizioni: { ...(S.cfg.posizioni || {}), [t.el.dataset.pin]: t.pos } });
+    if (t.tipo === "sposta" && !t.mosso) { sel3d = sel3d === t.id ? null : t.id; return disegna(); }
+    if ((t.tipo === "sposta" || t.tipo === "dim") && t.nuovo) { sel3d = t.id; salvaCfg({ pianta: { ...piantaStanze().p, [t.id]: t.nuovo } }).then(disegna); }
+  };
+  scena.onpointerup = fine; scena.onpointercancel = fine;
+};
+document.addEventListener("click", async (ev) => {
+  const t = ev.target.closest("button[data-p3d]"); if (!t || !sel3d) return;
+  const [k, v] = t.dataset.p3d.split("|"), r = { ...piantaStanze().p[sel3d] }, d = Number(v) * PASSO3D;
+  r[k] = Math.max(k === "w" || k === "h" ? 1 : 0, (r[k] || 0) + d);
+  await salvaCfg({ pianta: { ...piantaStanze().p, [sel3d]: r } }); disegna();
+});
+document.addEventListener("click", (ev) => { if (ev.target.closest("[data-modifica3d]") && modifica3d) sel3d = null; }, true);

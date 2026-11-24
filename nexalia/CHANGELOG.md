@@ -1,5 +1,10 @@
 # Novità
 
+## 1.6.3
+- Casa 3D, modifica: le stanze si ridimensionano da tutti e quattro i bordi e dai quattro angoli, con maniglie grandi e dentro la stanza (prima c'era solo un quadratino nell'angolo, spesso coperto dalla stanza accanto).
+- Passo di mezza cella, misura visibile mentre trascini e griglia di riferimento.
+- Tocca una stanza per sceglierla: compare una barra con Larghezza −/＋, Profondità −/＋ e le frecce per spostarla.
+
 ## 1.6.2
 - Rifiuti: sul telefono la pagina andava fuori schermo a destra; ora il riquadro "Domani" va sotto al calendario.
 

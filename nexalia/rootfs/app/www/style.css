@@ -637,3 +637,21 @@ body.chiaro .scelte-grandi button{background:#fff;border-color:#d9dee5}
 .pallino{width:14px;height:14px;border-radius:50%;flex:none}
 .racc-griglia{grid-template-columns:1fr 340px}
 @media (max-width:900px){.racc-griglia{grid-template-columns:1fr}}
+/* Casa 3D: maniglie su lati e angoli */
+.man3d{position:absolute;display:none;z-index:3;touch-action:none}
+.modifica .man3d{display:block}
+.modifica .maniglia{display:none}
+.man3d::after{content:"";position:absolute;inset:0;margin:auto;background:var(--blu);border-radius:4px;opacity:.85}
+.man-n,.man-s{left:18px;right:18px;height:24px;cursor:ns-resize}.man-n{top:0}.man-s{bottom:0}
+.man-e,.man-w{top:18px;bottom:18px;width:24px;cursor:ew-resize}.man-e{right:0}.man-w{left:0}
+.man-n::after,.man-s::after{width:36px;height:6px}.man-e::after,.man-w::after{width:6px;height:36px}
+.man-ne,.man-nw,.man-se,.man-sw{width:28px;height:28px}.man-ne::after,.man-nw::after,.man-se::after,.man-sw::after{width:14px;height:14px;border-radius:50%;border:2px solid #0B1118}
+.man-ne{top:0;right:0;cursor:nesw-resize}.man-sw{bottom:0;left:0;cursor:nesw-resize}.man-nw{top:0;left:0;cursor:nwse-resize}.man-se{bottom:0;right:0;cursor:nwse-resize}
+.misura3d{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:700;font-size:15px;padding:4px 10px;border-radius:999px;background:#0B1118cc;color:#fff;display:none;pointer-events:none}
+.c3d-stanza.attiva .misura3d{display:block}
+.modifica .c3d-stanza.attiva{z-index:5}
+.modifica .c3d-stanza .nome-st{left:30px;top:8px}
+.modifica .c3d-stanza[data-sel]{z-index:4;border-color:var(--blu);border-style:solid;box-shadow:0 0 0 2px var(--blu)}
+.modifica .c3d-piano{background-image:linear-gradient(rgba(140,170,210,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(140,170,210,.08) 1px,transparent 1px);background-size:35px 35px;outline:1px dashed rgba(140,170,210,.15);outline-offset:35px}
+.barra3d{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:0 0 10px;padding:10px 14px;border-radius:12px;background:var(--card2);border:1px solid var(--line2);font-size:14px}
+.barra3d .g3d{display:inline-flex;align-items:center;gap:6px}
