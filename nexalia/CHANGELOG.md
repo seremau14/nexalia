@@ -1,5 +1,8 @@
 # Novità
 
+## 1.6.2
+- Rifiuti: sul telefono la pagina andava fuori schermo a destra; ora il riquadro "Domani" va sotto al calendario.
+
 ## 1.6.1
 - Il blocco "Dispositivi" sparisce dalla home anche per chi lo aveva acceso senza preferiti.
 

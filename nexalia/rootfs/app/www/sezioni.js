@@ -825,7 +825,7 @@ const coloreRacc = (n) => (tipiRaccolta().find((x) => x[0] === n) || [n, "#B48CF
 let tipoRaccNuovo = "";
 vRaccolta = function () {
   const r = S.cfg.raccolta, domani = ((new Date().getDay() + 1) % 7) || 7, dom = tipiGiorno(String(domani)), tipi = tipiRaccolta();
-  return `<div class="griglia" style="grid-template-columns:1fr 340px">
+  return `<div class="griglia racc-griglia">
     <section class="card"><h2>Raccolta differenziata</h2><p class="mut" style="margin-top:-6px">Tocca i materiali che passano a ritirare ogni giorno: puoi sceglierne più d'uno (es. lunedì plastica e vetro). Nexalia ti ricorda la sera prima cosa portare fuori.</p>
       <div class="settimana">${GIORNI.map((g, i) => { const k = String(i + 1), sel = tipiGiorno(k); return `<div class="giorno"><b>${g}</b><div class="tipi-barra">${sel.length ? sel.map((t) => `<i style="background:${coloreRacc(t)}"></i>`).join("") : '<i style="background:#2A3644"></i>'}</div><div class="chip-racc">${tipi.map(([n, c]) => `<button class="${sel.includes(n) ? "on" : ""}" style="--c:${c}" data-nx-racc="${k}|${esc(n)}" aria-pressed="${sel.includes(n)}">${esc(n)}</button>`).join("")}</div></div>`; }).join("")}</div>
       <div class="gruppo">Altri materiali</div><p class="mut" style="margin-top:0">Se il tuo comune ritira anche altro (sfalci, pannolini, olio…) aggiungilo qui: compare in tutti i giorni.</p>

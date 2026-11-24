@@ -635,3 +635,5 @@ body.chiaro .scelte-grandi button{background:#fff;border-color:#d9dee5}
 .chip-racc button{font:inherit;font-size:12px;padding:5px 8px;border-radius:999px;border:1px solid var(--line2);background:transparent;color:var(--mut);cursor:pointer}
 .chip-racc button.on{background:var(--c);border-color:var(--c);color:#0B1118;font-weight:600}
 .pallino{width:14px;height:14px;border-radius:50%;flex:none}
+.racc-griglia{grid-template-columns:1fr 340px}
+@media (max-width:900px){.racc-griglia{grid-template-columns:1fr}}
