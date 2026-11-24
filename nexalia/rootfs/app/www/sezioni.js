@@ -35,17 +35,28 @@ const reT = (r) => (id) => r.test(testoE(id));
 const dc = (id) => attr(id, "device_class");
 const unita = (id) => attr(id, "unit_of_measurement") || "";
 const nonNasc = (id) => !(S.cfg.nascoste || []).includes(id);
+// dispositivi multimediali e telecamere (Echo, Google, Sonos, telecamere): le loro entità restano fuori dalle altre sezioni
+let devMedia = null, devMediaN = -1;
+function eDiMedia(id) {
+  if (!devMedia || devMediaN !== S.entita.length) {
+    devMedia = new Set(); devMediaN = S.entita.length;
+    for (const e of S.entita) if (e.dispositivo && ["media_player", "camera", "assist_satellite"].includes(dom(e.id))) devMedia.add(e.dispositivo);
+  }
+  const e = S.entita.find((x) => x.id === id);
+  return !!(e && e.dispositivo && devMedia.has(e.dispositivo));
+}
+const SEZ_MEDIA_OK = ["musica", "alexa", "citofono", "temperatura", "non_connessi"];
 const SEZ_GEN = {
   // Energia
   accumulo: { cat: "energia", nome: "Batteria di accumulo", ic: "batteria", auto: (id) => ["sensor", "binary_sensor"].includes(dom(id)) && /accumul|storage|luna2000|powerwall|battery_soc|batteria_(casa|accumulo)|home_battery|bms/.test(testoE(id)),
     campi: [["soc", "Stato di carica (%)", "numerico"], ["potenza", "Potenza (positiva in scarica)", "numerico"], ["carica_oggi", "Energia caricata oggi", "numerico"], ["scarica_oggi", "Energia scaricata oggi", "numerico"], ["temperatura", "Temperatura della batteria", "numerico"]] },
-  veicoli: { cat: "energia", nome: "Veicoli", ic: "auto", auto: (id) => ["sensor", "binary_sensor", "device_tracker", "lock", "climate", "switch", "number", "button"].includes(dom(id)) && /\b(car|auto|ev|tesla|kia|hyundai|renault|zoe|bmw|volkswagen|vw|leaf|leapmotor|byd|polestar|volvo|audi|mercedes|peugeot|fiat|toyota|skoda|cupra|seat|mg4|ioniq|niro|enyaq|smart)\b|vettura|veicolo|autonomia|odometer|chilometr|contachilometri|wallbox|colonnina|evcc|easee|zappi/.test(testoE(id)),
+  veicoli: { cat: "energia", nome: "Veicoli", ic: "auto", auto: (id) => ["sensor", "binary_sensor", "device_tracker", "lock", "climate", "switch", "number", "button"].includes(dom(id)) && /\b(car|ev|tesla|kia|hyundai|renault|zoe|bmw|volkswagen|vw|leaf|leapmotor|byd|polestar|volvo|audi|mercedes|peugeot|fiat|toyota|skoda|cupra|seat|mg4|ioniq|niro|enyaq)\b|vettura|veicolo|autonomia|odometer|chilometr|contachilometri|wallbox|colonnina|evcc|easee|zappi/.test(testoE(id)),
     campi: [["batteria", "Batteria o serbatoio (%)", "numerico"], ["autonomia", "Autonomia", "numerico"], ["km", "Contachilometri", "numerico"], ["in_carica", "In carica", "sensore"], ["potenza_carica", "Potenza di ricarica", "numerico"], ["posizione", "Posizione", "tutte"], ["serratura", "Serratura", "tutte"], ["clima", "Clima dell'auto", "tutte"], ["colonnina", "Colonnina (interruttore o modalità)", "tutte"]] },
-  ups: { cat: "energia", nome: "UPS", ic: "ups", auto: (id) => /\bups\b|nut_|_ups_|apc_|eaton|riello|cyberpower/.test(testoE(id)),
+  ups: { cat: "energia", nome: "UPS", ic: "ups", auto: (id) => ["sensor", "binary_sensor"].includes(dom(id)) && /\bups\b|nut_|_ups_|apc_|eaton|riello|cyberpower/.test(testoE(id)) && !/pop.?ups|follow.?ups/.test(testoE(id)),
     campi: [["stato", "Stato (rete o batteria)", "sensore"], ["batteria", "Batteria (%)", "numerico"], ["autonomia", "Autonomia", "numerico"], ["carico", "Carico (%)", "numerico"], ["tensione", "Tensione in ingresso", "numerico"]] },
   // Clima e acqua
   clima: { cat: "clima", nome: "Clima", ic: "clima", auto: (id) => ["climate", "fan", "humidifier", "water_heater"].includes(dom(id)) && visibile(id) },
-  temperatura: { cat: "clima", nome: "Temperatura", ic: "termometro", auto: (id) => dom(id) === "sensor" && ["temperature", "humidity"].includes(dc(id)) && !accessorio(id), perStanza: true },
+  temperatura: { cat: "clima", nome: "Temperatura", ic: "termometro", auto: (id) => dom(id) === "sensor" && ["temperature", "humidity"].includes(dc(id)) && !accessorio(id) && !/cpu|processor|chip|soc_|scheda|board|inverter|batter/.test(testoE(id)), perStanza: true },
   meteo: { cat: "clima", nome: "Meteo", ic: "meteo", auto: (id) => dom(id) === "weather" || id === "sun.sun",
     campi: [["meteo", "Entità meteo", "weather"], ["temperatura", "Temperatura esterna", "numerico"], ["umidita", "Umidità", "numerico"], ["vento", "Vento", "numerico"], ["pioggia", "Pioggia", "numerico"], ["pressione", "Pressione", "numerico"], ["uv", "Indice UV", "numerico"]] },
   termica: { cat: "clima", nome: "Gestione termica", ic: "clima", auto: (id) => dom(id) === "water_heater" || /caldaia|boiler|pompa.?di.?calore|heat.?pump|mandata|ritorno|puffer|solare.?termico|scaldabagno|termostufa|stufa|camino|pellet/.test(testoE(id)),
@@ -68,7 +79,7 @@ const SEZ_GEN = {
   stampanti: { cat: "casa", nome: "Stampanti", ic: "stampante", auto: (id) => ["sensor", "binary_sensor"].includes(dom(id)) && /printer|stampant|toner|\bink\b|inchiostro|cartridge|cartuccia|drum|brother|epson|canon|laserjet|deskjet|officejet|ecotank/.test(testoE(id)) },
   animali: { cat: "casa", nome: "Animali", ic: "zampa", auto: (id) => /\bcane\b|\bgatto\b|\bdog\b|\bcat\b|\bpet\b|lettiera|litter|mangiatoia|feeder|crocchet|tractive|petkit|catlink|fontanella|acquario|terrario/.test(testoE(id)) },
   batterie: { cat: "casa", nome: "Batterie", ic: "batteria", auto: (id) => dom(id) === "sensor" && dc(id) === "battery" && numE(id) != null, batterie: true },
-  salute: { cat: "casa", nome: "Salute", ic: "cuore", auto: (id) => dom(id) === "sensor" && /passi|steps|heart|battito|frequenza.?cardiaca|sleep|sonno|weight|peso|spo2|ossigen|blood|pressione.?(min|max|arter)|calori|withings|fitbit|garmin|health/.test(testoE(id)) },
+  salute: { cat: "casa", nome: "Salute", ic: "cuore", auto: (id) => dom(id) === "sensor" && /passi|steps|heart|battito|frequenza.?cardiaca|sleep|sonno|weight|peso|spo2|ossigen|blood|pressione.?(min|max|arter)|calori|withings|fitbit|garmin/.test(testoE(id)) },
   prese: { cat: "casa", nome: "Prese", ic: "presa", auto: (id) => ePresa(id) && visibile(id), perStanza: true },
   // Sicurezza
   varchi: { cat: "sicurezza", nome: "Varchi", ic: "porte", auto: (id) => eApertura(id), perStanza: true },
@@ -97,7 +108,7 @@ function entitaGen(id) {
   const m = miaSez(id); if (m) return (m.entita || []).filter((x) => st(x));
   const d = SEZ_GEN[id], c = cfgGen(id);
   const esc_ = c.escluse || [];
-  const auto = tutteId().filter((x) => { try { return d.auto(x) && nonNasc(x); } catch (e) { return false; } });
+  const auto = tutteId().filter((x) => { try { return d.auto(x) && nonNasc(x) && (SEZ_MEDIA_OK.includes(id) || !eDiMedia(x)); } catch (e) { return false; } });
   const campi = Object.values(c.campi || {}).filter((x) => x && st(x));
   return [...new Set([...campi, ...auto, ...(c.aggiunte || []).filter((x) => st(x))])].filter((x) => !esc_.includes(x) || campi.includes(x));
 }
@@ -198,7 +209,7 @@ let nuovaMia = { nome: "", icona: "stella" };
 const visTg = (id) => interruttore((S.cfg.sezioni || []).includes(id), `data-sezione="${id}"`, "Sezione visibile nella plancia", "Accesa, la sezione compare nella barra in alto");
 function pannelloGen(id) {
   const d = SEZ_GEN[id], c = cfgGen(id);
-  const auto = tutteId().filter((x) => { try { return d.auto(x) && nonNasc(x); } catch (e) { return false; } }).sort();
+  const auto = tutteId().filter((x) => { try { return d.auto(x) && nonNasc(x) && (SEZ_MEDIA_OK.includes(id) || !eDiMedia(x)); } catch (e) { return false; } }).sort();
   const escl = c.escluse || [], agg = (c.aggiunte || []);
   const filtri = [...new Set((d.campi || []).map((x) => x[2]))];
   return `${filtri.map(datalist).join("")}${datalist("tutte")}

@@ -1,5 +1,8 @@
 # Novità
 
+## 1.3.1
+- Riconoscimento più preciso: le entità di Echo, altoparlanti e telecamere non finiscono più in Veicoli, UPS, Animali o MiniPC, e la stampante non finisce più in Salute.
+
 ## 1.3.0
 - Impostazioni ordinate per categorie: Plancia, Energia, Clima e acqua, Casa, Sicurezza, Avvisi, Alexa, Macchine e rete, con 52 pagine.
 - Nuove sezioni, ognuna con la sua pagina nell'editor (accendila e compare nella barra in alto): Batteria di accumulo, Veicoli, UPS, Clima, Temperatura, Meteo (con previsioni, alba e tramonto), Gestione termica, Piscina, Irrigazione, Piante, Acqua e gas, Luci, Finestre, Elettrodomestici, Musica, Radio (con le tue stazioni), Sport, Robot, Stampanti, Animali, Batterie, Salute, Prese, Varchi, Presenza, Apri porte e cancelli, Citofono e posta, Allerte, Agenda, Musica su Alexa, MiniPC e rete, Dispositivi non connessi.
