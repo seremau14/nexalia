@@ -934,8 +934,20 @@ function ascolta() {
   es.addEventListener("config", (e) => { S.cfg = JSON.parse(e.data); disegnaSchede(); ridisegna(); });
   es.addEventListener("ricarica", () => carica());
   es.addEventListener("aggiornamento", (e) => { S.aggiornamento = JSON.parse(e.data); ridisegna(); });
-  es.onopen = () => { if (!S.collegato && S.cfg) carica(); };
-  es.onerror = () => { S.collegato = false; aggiornaStatoHa(); };
+  es.onopen = () => { S.sseAperto = Date.now(); if (!S.collegato && S.cfg) carica(); };
+  es.onerror = () => { S.sseAperto = 0; S.collegato = false; aggiornaStatoHa(); };
 }
+// riserva: alcuni browser integrati (tablet, Echo con LineageOS, app che mostrano la plancia) bloccano il collegamento
+// in tempo reale. Se non è aperto, la plancia si aggiorna da sola ogni 6 secondi chiedendo lo stato.
+setInterval(async () => {
+  if (S.sseAperto || !S.cfg || document.hidden) return;
+  try {
+    const d = await api("api/stato");
+    S.stati = Object.fromEntries(d.ha.stati.map((s) => [s.entity_id, s]));
+    S.diario = d.diario; S.collegato = d.collegato; S.aggiornamento = d.aggiornamento;
+    try { S.richieste = (await api("api/richieste")).richieste; } catch (e) {}
+    aggiornaStatoHa(); ridisegna();
+  } catch (e) {}
+}, 6000);
 setInterval(() => { if (S.scheda === "agente" || S.scheda === "sicurezza") ridisegna(); }, 30000);
 carica().then(ascolta);

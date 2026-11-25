@@ -1,5 +1,8 @@
 # Novità
 
+## 1.9.1
+- La plancia si aggiorna anche sui browser integrati che bloccano il collegamento in tempo reale (tablet, Echo con LineageOS, app che la mostrano a tutto schermo): in quel caso chiede lo stato ogni 6 secondi.
+
 ## 1.9.0
 - L'agente non fa più nulla da solo: quando vede qualcosa che non va lo mostra in cima alla home e chiede cosa fare, con i pulsanti per farlo.
   - Siete usciti tutti e l'antifurto non è inserito → "Inserisci l'antifurto".
