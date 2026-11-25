@@ -1,5 +1,8 @@
 # Novità
 
+## 1.8.2
+- Correzione: la home restava vuota se un sensore della batteria del telefono non aveva stato.
+
 ## 1.8.1
 - Batteria del telefono anche quando arriva solo con la posizione (iPhone e app di Home Assistant senza sensori attivi).
 

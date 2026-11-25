@@ -1080,7 +1080,7 @@ function avatarSvg(a, stato = "") {
 }
 // batteria del telefono: quella scelta, altrimenti la trovo da sola sullo stesso dispositivo del tracker (app di Home Assistant)
 function batteriaDi(el, id) {
-  const stessoDisp = (pred) => { const e = S.entita.find((x) => x.id === (el.tracker || id)); if (!e || !e.dispositivo) return null; const c = S.entita.find((x) => x.dispositivo === e.dispositivo && x.id !== e.id && pred(x.id)); return c ? c.id : null; };
+  const stessoDisp = (pred) => { const e = S.entita.find((x) => x.id === (el.tracker || id)); if (!e || !e.dispositivo) return null; const c = S.entita.find((x) => x.dispositivo === e.dispositivo && x.id !== e.id && st(x.id) && pred(x.id)); return c ? c.id : null; };
   const liv = el.batteria && st(el.batteria) ? el.batteria : stessoDisp((x) => x.startsWith("sensor.") && attr(x, "device_class") === "battery" && attr(x, "unit_of_measurement") === "%");
   const car = el.stato_batteria && st(el.stato_batteria) ? el.stato_batteria : stessoDisp((x) => /battery_state|stato_batteria/.test(x));
   // senza sensore: molti telefoni mandano la batteria insieme alla posizione (attributo battery_level del tracker)
@@ -1088,7 +1088,7 @@ function batteriaDi(el, id) {
   const daTr = tr ? attr(tr, "battery_level") : null;
   if (!liv && daTr == null) return null;
   const v = Number(liv ? st(liv).state : daTr); if (!isFinite(v)) return null;
-  return { v: Math.round(v), carica: !!car && /charg|carica|full|piena/i.test(st(car).state) && !/not|discharg|non/i.test(st(car).state) };
+  return { v: Math.round(v), carica: !!car && !!st(car) && /charg|carica|full|piena/i.test(st(car).state) && !/not|discharg|non/i.test(st(car).state) };
 }
 function pillolaBatteria(b) {
   const c = b.v <= 15 ? "var(--rosso,#EF4444)" : b.v <= 35 ? "#F59E0B" : "var(--verde,#22C55E)";
@@ -1101,7 +1101,8 @@ function avatarPersona(el, id, nome, casa) {
   if (tipo === "iniziale") return esc(nome.slice(0, 1));
   return avatarSvg({ ...avatarBase(nome), ...a }, casa ? "casa" : "fuori");
 }
-vPersoneHome = function () {
+vPersoneHome = function () { try { return vPersoneHome2(); } catch (e) { console.error("Persone:", e); return ""; } };
+function vPersoneHome2() {
   const els = (((S.cfg.sez_gen || {}).persone || {}).elementi || []).filter((x) => (x.tracker && st(x.tracker)) || (x.persona && st(x.persona)));
   const coperte = new Set(els.map((x) => x.persona).filter(Boolean));
   const lista = [...els.map((el) => ({ el, id: el.tracker && st(el.tracker) ? el.tracker : el.persona })), ...tutteId().filter((id) => dom(id) === "person" && !coperte.has(id)).map((id) => ({ el: {}, id }))];
