@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.8.2";
+const VERSIONE = "1.9.0";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -182,6 +182,7 @@ function collegaHA() {
           await wsChiama({ type: "subscribe_events", event_type: "state_changed" });
           for (const e of ["area_registry_updated", "entity_registry_updated", "device_registry_updated"]) await wsChiama({ type: "subscribe_events", event_type: e });
           await caricaRegistri();
+          setTimeout(() => { try { controllaUscita(); controllaAllarme(); controllaConsumi(); } catch (e) {} }, 8000);
         } catch (e) { log("Iscrizione eventi fallita:", e.message); }
       } else if (msg.type === "auth_invalid") { log("Token di Home Assistant rifiutato"); }
       else if (msg.type === "result") {
@@ -272,6 +273,8 @@ function agenteCambio(id, vecchio, nuovo) {
     if (aperte.length) { const v = annota({ tipo: "avviso", icona: "goccia", titolo: "Inizia a piovere: " + aperte.length + (aperte.length === 1 ? " finestra aperta" : " finestre aperte"), testo: aperte.map((x) => x.attributes.friendly_name).join(", ") }); notifica("Nexalia", v.titolo); }
   }
   if (config.energia.casa && id === config.energia.casa) controllaConsumi();
+  if (d === "person" || d === "alarm_control_panel" || d === "light" || (d === "binary_sensor" && ["window", "door", "garage_door"].includes(c))) controllaUscita();
+  if (d === "alarm_control_panel") controllaAllarme();
 }
 
 function piove() { return Object.values(ha.stati).some((x) => x.entity_id.startsWith("weather.") && ["rainy", "pouring", "lightning-rainy"].includes(x.state)); }
@@ -286,35 +289,50 @@ function accessorio(id) {
   return ha.entita.some((x) => x.dispositivo === e.dispositivo && /^(media_player|assist_satellite|camera)\./.test(x.id));
 }
 
-async function uscitiTutti() {
-  const accese = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("light.") && x.state === "on" && !accessorio(x.entity_id));
-  if (config.agente.spegni_luci_uscita && accese.length) {
-    try {
-      await servizio("light", "turn_off", { entity_id: accese.map((x) => x.entity_id) });
-      annota({ tipo: "fatto", icona: "luci", titolo: "Siete usciti tutti: ho spento " + accese.length + (accese.length === 1 ? " luce" : " luci"), stanza: "Casa" });
-    } catch (e) {}
-  } else if (accese.length) {
-    annota({ tipo: "avviso", icona: "luci", titolo: "Siete usciti tutti ma " + accese.length + (accese.length === 1 ? " luce è accesa" : " luci sono accese"), testo: "Puoi spegnerle da Comandi, oppure attiva lo spegnimento automatico nelle impostazioni dell'agente." });
-  }
+// ---------------------------------------------------------------- Richieste dell'agente
+// L'agente non fa mai nulla da solo: quando vede qualcosa che non va lo mostra sulla plancia e chiede. Agisce solo se tocchi un pulsante.
+const richieste = new Map(); // chiave -> { chiave, t, livello, icona, titolo, testo, azioni:[{etichetta, tipo:"servizio"|"vai", dominio, servizio, dati, vai}] }
+function chiedi(r) {
+  const v = { t: Date.now(), livello: "attenzione", icona: "agente", azioni: [], ...r };
+  const gia = richieste.get(v.chiave);
+  richieste.set(v.chiave, v); inviaSSE("richieste", [...richieste.values()]);
+  if (!gia) { annota({ tipo: "avviso", icona: v.icona, titolo: v.titolo, testo: v.testo || "" }); notifica("Nexalia", v.titolo + (v.testo ? " – " + v.testo : ""), v.livello === "urgente" ? "urgenti" : "casa"); }
+  return v;
 }
+function chiudiRichiesta(chiave) { if (richieste.delete(chiave)) inviaSSE("richieste", [...richieste.values()]); }
+const tuttiFuori = () => { const p = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("person.")); return p.length > 0 && p.every((x) => x.state !== "home"); };
+const centrale = () => { const c = (config.antifurto || {}).entita; if (c && ha.stati[c]) return c; const x = Object.values(ha.stati).find((y) => y.entity_id.startsWith("alarm_control_panel.")); return x ? x.entity_id : null; };
+const apertureAperte = () => Object.values(ha.stati).filter((x) => x.entity_id.startsWith("binary_sensor.") && ["window", "door", "garage_door"].includes(x.attributes.device_class) && x.state === "on" && !accessorio(x.entity_id));
+function controllaUscita() {
+  if (!tuttiFuori()) { for (const k of ["antifurto_fuori", "aperture_fuori", "luci_fuori"]) chiudiRichiesta(k); return; }
+  const c = centrale();
+  if (c && ha.stati[c].state === "disarmed") {
+    const modo = ((config.antifurto || {}).modi || []).includes("armed_away") ? "alarm_arm_away" : "alarm_arm_away";
+    chiedi({ chiave: "antifurto_fuori", icona: "sicurezza", titolo: "Siete usciti tutti e l'antifurto non è inserito", testo: "Vuoi che lo inserisca?", azioni: [{ etichetta: "Inserisci l'antifurto", tipo: "servizio", dominio: "alarm_control_panel", servizio: modo, dati: { entity_id: c } }] });
+  } else chiudiRichiesta("antifurto_fuori");
+  const ap = apertureAperte();
+  if (ap.length) chiedi({ chiave: "aperture_fuori", icona: "finestra", titolo: "Siete tutti fuori e " + (ap.length === 1 ? nome(ap[0].entity_id).toLowerCase() + " è aperta" : ap.length + " porte o finestre sono aperte"), testo: ap.length > 1 ? ap.map((x) => x.attributes.friendly_name).join(", ") : "", azioni: [{ etichetta: "Vedi in Sicurezza", tipo: "vai", vai: "sicurezza" }] });
+  else chiudiRichiesta("aperture_fuori");
+  const accese = Object.values(ha.stati).filter((x) => x.entity_id.startsWith("light.") && x.state === "on" && !accessorio(x.entity_id));
+  if (accese.length) chiedi({ chiave: "luci_fuori", icona: "luci", titolo: "Siete tutti fuori e " + (accese.length === 1 ? "una luce è accesa" : accese.length + " luci sono accese"), testo: "Le spengo?", azioni: [{ etichetta: "Spegni " + (accese.length === 1 ? "la luce" : "le luci"), tipo: "servizio", dominio: "light", servizio: "turn_off", dati: { entity_id: accese.map((x) => x.entity_id) } }] });
+  else chiudiRichiesta("luci_fuori");
+}
+async function uscitiTutti() { controllaUscita(); }
 
 async function controllaConsumi() {
   if (!config.agente.avvisa_consumi) return;
   const w = numero(config.energia.casa), lim = (Number(config.energia.contatore_kw) || 3) * 1000;
-  if (w == null || w < lim * 0.92 || Date.now() - ultimoAvvisoConsumi < 10 * 60000) return;
+  if (w == null) return;
+  if (w < lim * 0.85) return chiudiRichiesta("consumi");
+  if (w < lim * 0.92 || (richieste.has("consumi") && Date.now() - ultimoAvvisoConsumi < 10 * 60000)) return;
   ultimoAvvisoConsumi = Date.now();
   const diff = (config.energia.differibili || []).filter((id) => ha.stati[id] && ha.stati[id].state === "on");
-  if (diff.length) {
-    const id = diff[0];
-    try {
-      await servizio(dominio(id), "turn_off", { entity_id: id });
-      const v = annota({ tipo: "fatto", icona: "energia", titolo: "Consumi a " + (w / 1000).toFixed(1).replace(".", ",") + " kW: ho spento " + nome(id).toLowerCase(), testo: "Per non superare i " + config.energia.contatore_kw + " kW del contatore. Riaccendila quando gli altri consumi scendono." });
-      notifica("Nexalia", v.titolo);
-    } catch (e) {}
-  } else {
-    const v = annota({ tipo: "avviso", icona: "energia", titolo: "Consumi alti: " + (w / 1000).toFixed(1).replace(".", ",") + " kW", testo: "Stai per superare i " + config.energia.contatore_kw + " kW del contatore." });
-    notifica("Nexalia", v.titolo);
-  }
+  chiedi({ chiave: "consumi", icona: "energia", livello: w >= lim ? "urgente" : "attenzione", titolo: "Consumi a " + (w / 1000).toFixed(1).replace(".", ",") + " kW: " + (w >= lim ? "oltre" : "vicino al") + " limite di " + config.energia.contatore_kw + " kW", testo: diff.length ? "Vuoi che spenga qualcosa?" : "Spegni qualche elettrodomestico per non far saltare il contatore.", azioni: diff.slice(0, 3).map((id) => ({ etichetta: "Spegni " + nome(id).toLowerCase(), tipo: "servizio", dominio: dominio(id), servizio: "turn_off", dati: { entity_id: id } })) });
+}
+function controllaAllarme() {
+  const c = centrale();
+  if (c && ha.stati[c].state === "triggered") chiedi({ chiave: "allarme", livello: "urgente", icona: "sicurezza", titolo: "L'antifurto sta suonando!", testo: nome(c), azioni: [{ etichetta: "Guarda le telecamere", tipo: "vai", vai: "sicurezza" }, { etichetta: "Disinserisci", tipo: "servizio", dominio: "alarm_control_panel", servizio: "alarm_disarm", dati: { entity_id: c } }] });
+  else chiudiRichiesta("allarme");
 }
 
 // ---------------------------------------------------------------- Alexa: gli Echo dicono le notifiche
@@ -624,6 +642,18 @@ async function api(req, res, p) {
     if (!/^conversation\.[a-z0-9_]+$/.test(agente)) return json(res, { ok: false, errore: "Scegli prima un assistente AI qui sopra" }, 400);
     try { return json(res, { ok: true, ...(await scriviPrompt(agente, String(b.prompt || "").slice(0, 4000))) }); }
     catch (e) { return json(res, { ok: false, errore: e.message }, 500); }
+  }
+  if (p === "/api/richieste" && req.method === "GET") return json(res, { ok: true, richieste: [...richieste.values()] });
+  if (p === "/api/richieste" && req.method === "POST") {
+    const b = await corpo(req), r = richieste.get(String(b.chiave || ""));
+    if (!r) return json(res, { ok: true, gia: true });
+    if (b.azione === "ignora") { chiudiRichiesta(r.chiave); annota({ icona: r.icona, titolo: "Ok, lascio stare: " + r.titolo.charAt(0).toLowerCase() + r.titolo.slice(1) }); return json(res, { ok: true }); }
+    const az = r.azioni[Number(b.azione)];
+    if (!az || az.tipo !== "servizio") return json(res, { ok: false, errore: "Azione non valida" }, 400);
+    try { await servizio(az.dominio, az.servizio, az.dati); }
+    catch (e) { return json(res, { ok: false, errore: /code|codice/i.test(e.message) ? "Serve il codice dell'antifurto: inseriscilo dalla sezione Sicurezza" : e.message }, 500); }
+    chiudiRichiesta(r.chiave); annota({ tipo: "fatto", icona: r.icona, titolo: "Fatto su tua richiesta: " + az.etichetta.toLowerCase() });
+    return json(res, { ok: true });
   }
   if (p === "/api/previsioni" && req.method === "GET") {
     const u = new URL(req.url, "http://x"); const id = u.searchParams.get("id"), tipo = u.searchParams.get("tipo") === "hourly" ? "hourly" : "daily";

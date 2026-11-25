@@ -1141,3 +1141,29 @@ document.addEventListener("click", async (ev) => {
   if (t.dataset.nxAv) { const [i, k, v] = t.dataset.nxAv.split("|"); await impostaCfg(`sez_gen.persone.elementi.${i}.avatar.${k}`, v); return disegna(); }
   if (t.dataset.nxAvCaso !== undefined) { const i = t.dataset.nxAvCaso, r = (l) => l[Math.floor(Math.random() * l.length)]; await impostaCfg(`sez_gen.persone.elementi.${i}.avatar`, { tipo: "animato", pelle: r(AV.pelle), capelli: r(AV.capelli)[0], col_capelli: r(AV.col_capelli), barba: r([["no"], ["no"], ["barba"], ["baffi"]])[0], occhiali: r([["no"], ["no"], ["tondi"], ["quadrati"], ["sole"]])[0], maglia: r(AV.maglia), sfondo: r(AV.sfondo) }); return disegna(); }
 });
+
+// ================================================================== Richieste dell'agente in home: avvisa e chiede, non agisce da solo
+S.richieste = S.richieste || [];
+(async () => { for (let i = 0; i < 40 && !S.cfg; i++) await new Promise((r) => setTimeout(r, 300)); try { S.richieste = (await api("api/richieste")).richieste; disegna(); } catch (e) {} })();
+function htmlRichieste() {
+  const l = [...(S.richieste || [])].sort((a, b) => (b.livello === "urgente") - (a.livello === "urgente") || b.t - a.t);
+  if (!l.length) return "";
+  return `<section class="richieste">${l.map((r) => `<div class="richiesta ${r.livello}" role="${r.livello === "urgente" ? "alert" : "status"}"><span class="r-ic">${ico(r.icona || "agente")}</span><div class="r-testo"><small>${r.livello === "urgente" ? "Urgente" : "Nexalia ti chiede"}</small><b>${esc(r.titolo)}</b>${r.testo ? `<span>${esc(r.testo)}</span>` : ""}</div><div class="r-az">${r.azioni.map((a, i) => `<button class="btn ${i === r.azioni.length - 1 && a.tipo === "servizio" ? "p" : ""}" data-nx-rich="${esc(r.chiave)}|${i}">${esc(a.etichetta)}</button>`).join("")}<button class="btn" data-nx-rich="${esc(r.chiave)}|ignora">${r.azioni.some((a) => a.tipo === "servizio") ? "No, lascia stare" : "Ok"}</button></div></div>`).join("")}</section>`;
+}
+const _disegnaRich = disegna;
+disegna = function () {
+  _disegnaRich();
+  if (!S.cfg || S.scheda !== "agente") return;
+  const h = htmlRichieste(), v = $("#vista"); if (!h || !v) return;
+  const pill = v.querySelector(".pastiglie, .persone-home");
+  if (pill) pill.insertAdjacentHTML("beforebegin", h); else v.insertAdjacentHTML("afterbegin", h);
+};
+document.addEventListener("click", async (ev) => {
+  const t = ev.target.closest("button[data-nx-rich]"); if (!t) return;
+  const [chiave, az] = t.dataset.nxRich.split("|"), r = (S.richieste || []).find((x) => x.chiave === chiave); if (!r) return;
+  if (az !== "ignora" && r.azioni[Number(az)] && r.azioni[Number(az)].tipo === "vai") return vai(r.azioni[Number(az)].vai);
+  t.disabled = true;
+  try { await api("api/richieste", { metodo: "POST", corpo: { chiave, azione: az === "ignora" ? "ignora" : Number(az) } }); S.richieste = S.richieste.filter((x) => x.chiave !== chiave); avviso(az === "ignora" ? "Ok, lascio stare" : "Fatto", "ok"); }
+  catch (e) { avviso(e.message, "err"); t.disabled = false; }
+  disegna();
+});

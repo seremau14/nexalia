@@ -1,5 +1,14 @@
 # Novità
 
+## 1.9.0
+- L'agente non fa più nulla da solo: quando vede qualcosa che non va lo mostra in cima alla home e chiede cosa fare, con i pulsanti per farlo.
+  - Siete usciti tutti e l'antifurto non è inserito → "Inserisci l'antifurto".
+  - Siete tutti fuori e una porta o finestra è aperta.
+  - Siete tutti fuori e ci sono luci accese → "Spegni le luci".
+  - Consumi vicini o oltre il limite del contatore → "Spegni …" per i carichi differibili.
+  - L'antifurto sta suonando → avviso urgente, "Guarda le telecamere" o "Disinserisci".
+- Gli avvisi spariscono da soli quando il problema si risolve; arrivano anche come notifica.
+
 ## 1.8.2
 - Correzione: la home restava vuota se un sensore della batteria del telefono non aveva stato.
 

@@ -677,7 +677,7 @@ function pannelli() {
       </div>` };
   P.agente = { cat: "agente", ic: "agente", tit: "Agente", kw: "agente avvisi notifiche telefono consumi pioggia luci uscita", html: () => `
       <label class="campo">Dove mandare gli avvisi<span>Scegli l'app sul telefono (notify.mobile_app_…)</span><select id="impNotifica"><option value="">Solo notifiche di Home Assistant</option>${notif.map((n) => `<option value="notify.${n}" ${a.notifica === "notify." + n ? "selected" : ""}>notify.${esc(n)}</option>`).join("")}</select></label>
-      <div class="voce-imp" style="margin-top:8px"><div><b>Spegni le luci quando escono tutti</b><small>Altrimenti Nexalia te lo ricorda soltanto</small></div><button class="tg ${a.spegni_luci_uscita ? "on" : ""}" data-agente="spegni_luci_uscita" aria-label="Spegni le luci quando escono tutti"></button></div>
+      <div class="voce-imp" style="margin-top:8px"><div><b>L'agente non fa nulla da solo</b><small>Quando vede qualcosa che non va (antifurto non inserito e tutti fuori, finestre aperte, luci accese, consumi oltre il limite, antifurto che suona) te lo mostra in home e ti chiede cosa fare.</small></div></div>
       <div class="voce-imp"><div><b>Avvisa per consumi alti</b><small>Prima di superare la potenza del contatore</small></div><button class="tg ${a.avvisa_consumi ? "on" : ""}" data-agente="avvisa_consumi" aria-label="Avvisa per consumi alti"></button></div>
       <div class="voce-imp"><div><b>Finestre aperte quando piove</b><small>Usa il meteo di Home Assistant</small></div><button class="tg ${a.avvisa_finestre_pioggia ? "on" : ""}" data-agente="avvisa_finestre_pioggia" aria-label="Finestre aperte quando piove"></button></div>` };
   P.assist = { cat: "agente", ic: "invio", tit: "Assist e voce", kw: "assist chat assistente modello ai voce leggi risposta gemini", html: () => `<p class="mut">La casella "Chiedi a Nexalia" passa le richieste all'assistente di Home Assistant. Qui scegli quale usare e se la plancia deve leggere le risposte ad alta voce.</p>
@@ -930,6 +930,7 @@ function ascolta() {
   const es = new EventSource("api/eventi");
   es.addEventListener("stato", (e) => { const { id, s } = JSON.parse(e.data); if (s) S.stati[id] = s; else delete S.stati[id]; ridisegna(); });
   es.addEventListener("diario", (e) => { S.diario.unshift(JSON.parse(e.data)); ridisegna(); });
+  es.addEventListener("richieste", (e) => { S.richieste = JSON.parse(e.data); ridisegna(); });
   es.addEventListener("config", (e) => { S.cfg = JSON.parse(e.data); disegnaSchede(); ridisegna(); });
   es.addEventListener("ricarica", () => carica());
   es.addEventListener("aggiornamento", (e) => { S.aggiornamento = JSON.parse(e.data); ridisegna(); });

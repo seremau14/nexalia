@@ -686,3 +686,14 @@ body.chiaro .scelte-grandi button{background:#fff;border-color:#d9dee5}
 .chips-av button.on{border-color:var(--blu);background:color-mix(in srgb,var(--blu) 18%,transparent)}
 .chips-av button.colore{width:26px;height:26px;padding:0;background:var(--c)}
 .chips-av button.colore.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--blu)}
+/* Richieste dell'agente */
+.richieste{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.richiesta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:16px;background:color-mix(in srgb,#F59E0B 12%,var(--card));border:1px solid color-mix(in srgb,#F59E0B 45%,transparent)}
+.richiesta.urgente{background:color-mix(in srgb,#EF4444 16%,var(--card));border-color:#EF4444;animation:r-pulsa 1.6s ease-in-out infinite}
+@keyframes r-pulsa{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.45)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+.richiesta .r-ic{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:rgba(0,0,0,.18);flex:none}
+.richiesta .r-testo{flex:1;min-width:200px;display:flex;flex-direction:column;gap:2px}
+.richiesta .r-testo small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.75;font-weight:700}
+.richiesta .r-testo span{opacity:.85;font-size:14px}
+.richiesta .r-az{display:flex;gap:8px;flex-wrap:wrap}
+@media (prefers-reduced-motion:reduce){.richiesta.urgente{animation:none}}
