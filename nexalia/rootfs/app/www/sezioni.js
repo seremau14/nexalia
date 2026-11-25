@@ -1083,8 +1083,11 @@ function batteriaDi(el, id) {
   const stessoDisp = (pred) => { const e = S.entita.find((x) => x.id === (el.tracker || id)); if (!e || !e.dispositivo) return null; const c = S.entita.find((x) => x.dispositivo === e.dispositivo && x.id !== e.id && pred(x.id)); return c ? c.id : null; };
   const liv = el.batteria && st(el.batteria) ? el.batteria : stessoDisp((x) => x.startsWith("sensor.") && attr(x, "device_class") === "battery" && attr(x, "unit_of_measurement") === "%");
   const car = el.stato_batteria && st(el.stato_batteria) ? el.stato_batteria : stessoDisp((x) => /battery_state|stato_batteria/.test(x));
-  if (!liv) return null;
-  const v = Number(st(liv).state); if (!isFinite(v)) return null;
+  // senza sensore: molti telefoni mandano la batteria insieme alla posizione (attributo battery_level del tracker)
+  const tr = el.tracker && st(el.tracker) ? el.tracker : dom(id) === "device_tracker" ? id : null;
+  const daTr = tr ? attr(tr, "battery_level") : null;
+  if (!liv && daTr == null) return null;
+  const v = Number(liv ? st(liv).state : daTr); if (!isFinite(v)) return null;
   return { v: Math.round(v), carica: !!car && /charg|carica|full|piena/i.test(st(car).state) && !/not|discharg|non/i.test(st(car).state) };
 }
 function pillolaBatteria(b) {
