@@ -1,5 +1,9 @@
 # Novità
 
+## 1.8.0
+- Persone in home: batteria del telefono sempre visibile (livello colorato e fulmine quando è in carica). Con l'app di Home Assistant la trova da sola.
+- Avatar animati (sbattono le palpebre, respirano, salutano quando sei in casa) personalizzabili in Impostazioni › Persone: pelle, capelli, colore, barba, occhiali, maglia e sfondo, oppure foto o iniziale. Tasto "A caso".
+
 ## 1.7.3
 - Impostazioni: nuovo interruttore "Nexalia come schermata iniziale per tutti". Aprendo Home Assistant parte subito Nexalia per tutti gli utenti.
 

@@ -1043,3 +1043,97 @@ document.addEventListener("click", async (ev) => {
   } catch (e) { avviso("Serve un utente amministratore di Home Assistant", "err"); }
   disegna();
 });
+
+// ================================================================== Persone: batteria del telefono e avatar animato
+const AV = {
+  pelle: ["#F6D3B3", "#E9B98F", "#C98E62", "#9A6440", "#6B4329"],
+  capelli: [["corti", "Corti"], ["lunghi", "Lunghi"], ["ricci", "Ricci"], ["coda", "Coda"], ["cresta", "Spettinati"], ["calvo", "Senza"]],
+  col_capelli: ["#2B1D14", "#5A3825", "#9C6B3C", "#D9B26B", "#B5452E", "#8E8E8E"],
+  barba: [["no", "No"], ["barba", "Barba"], ["baffi", "Baffi"]],
+  occhiali: [["no", "No"], ["tondi", "Tondi"], ["quadrati", "Quadrati"], ["sole", "Da sole"]],
+  maglia: ["#3B82F6", "#22C55E", "#EF4444", "#A855F7", "#F59E0B", "#14B8A6", "#334155", "#EC4899"],
+  sfondo: ["#1E3A5F", "#3B2F5E", "#1F4D3A", "#5E2F2F", "#4A4A2A", "#2A4A5E", "#E8EEF6", "#FDE7D3"],
+};
+// un avatar diverso per ognuno anche senza impostarlo, ricavato dal nome
+function avatarBase(nome) {
+  let h = 0; for (const c of String(nome || "x")) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const p = (l) => l[(h = (h * 1103515245 + 12345) >>> 0) % l.length];
+  return { pelle: p(AV.pelle), capelli: p(AV.capelli.slice(0, 5))[0], col_capelli: p(AV.col_capelli.slice(0, 5)), barba: "no", occhiali: "no", maglia: p(AV.maglia), sfondo: p(AV.sfondo.slice(0, 6)) };
+}
+function avatarSvg(a, stato = "") {
+  const P = a.pelle, C = a.col_capelli, scuro = "color-mix(in srgb," + P + " 80%,#000)";
+  const dietro = a.capelli === "lunghi" ? `<path class="av-ciuffo" d="M27 42C26 20 74 20 73 42L75 76C66 80 34 80 25 76Z" fill="${C}"/>` : a.capelli === "coda" ? `<path class="av-coda" d="M68 34C82 36 84 58 76 70C74 58 72 48 66 42Z" fill="${C}"/>` : "";
+  const sopra = { corti: `<path d="M29 42C28 22 41 17 50 17C61 17 72 23 71 42C67 33 59 29 50 30C41 29 33 33 29 42Z" fill="${C}"/>`,
+    lunghi: `<path d="M29 44C28 22 41 17 50 17C61 17 72 22 71 44C66 30 58 27 48 28C40 29 33 34 29 44Z" fill="${C}"/>`,
+    coda: `<path d="M29 41C28 22 41 17 50 17C61 17 72 23 71 41C66 31 58 28 50 28C41 28 33 32 29 41Z" fill="${C}"/>`,
+    ricci: [[32, 32], [38, 24], [46, 20], [55, 20], [63, 24], [68, 32], [30, 40], [70, 40]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="7" fill="${C}"/>`).join(""),
+    cresta: `<path d="M30 40C29 26 38 18 46 16L44 22L52 14L54 21L62 16L60 23C68 26 71 33 70 40C64 32 57 29 50 30C42 30 35 33 30 40Z" fill="${C}"/>`, calvo: "" }[a.capelli] || "";
+  const barba = a.barba === "barba" ? `<path d="M31 48C32 64 40 70 50 70C60 70 68 64 69 48C66 56 61 60 50 60C39 60 34 56 31 48Z" fill="${C}"/><path d="M44 57Q50 54 56 57" stroke="${C}" stroke-width="3" fill="none" stroke-linecap="round"/>` : a.barba === "baffi" ? `<path d="M42 55Q46 52 50 54Q54 52 58 55Q54 57 50 55.5Q46 57 42 55Z" fill="${C}"/>` : "";
+  const occh = a.occhiali === "tondi" ? `<g fill="none" stroke="#1B1B1B" stroke-width="1.8"><circle cx="42" cy="45" r="6"/><circle cx="58" cy="45" r="6"/><path d="M48 45h4"/></g>` : a.occhiali === "quadrati" ? `<g fill="none" stroke="#1B1B1B" stroke-width="1.8"><rect x="35" y="40" width="13" height="10" rx="2"/><rect x="52" y="40" width="13" height="10" rx="2"/><path d="M48 45h4"/></g>` : a.occhiali === "sole" ? `<g fill="#151515" stroke="#151515" stroke-width="1.5"><rect x="35" y="40" width="13" height="9" rx="3"/><rect x="52" y="40" width="13" height="9" rx="3"/><path d="M48 44h4"/></g>` : "";
+  const occhi = a.occhiali === "sole" ? "" : `<g class="av-occhi"><ellipse cx="42" cy="45.5" rx="2.4" ry="2.8" fill="#1E1E1E"/><ellipse cx="58" cy="45.5" rx="2.4" ry="2.8" fill="#1E1E1E"/><circle cx="42.8" cy="44.6" r=".8" fill="#fff"/><circle cx="58.8" cy="44.6" r=".8" fill="#fff"/></g>`;
+  return `<svg class="av-svg ${stato}" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="${a.sfondo}"/>
+    <g class="av-corpo"><path d="M16 104C16 80 32 71 50 71C68 71 84 80 84 104Z" fill="${a.maglia}"/><path d="M42 71Q50 79 58 71" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2"/></g>
+    <g class="av-testa">${dietro}<rect x="44" y="58" width="12" height="15" rx="5" fill="${scuro}"/><circle cx="30" cy="47" r="4.5" fill="${P}"/><circle cx="70" cy="47" r="4.5" fill="${P}"/><ellipse cx="50" cy="44" rx="20" ry="22" fill="${P}"/>
+      ${sopra}<path d="M37 39.5Q42 37 46 39M54 39Q58 37 63 39.5" stroke="${C === "#8E8E8E" ? "#555" : C}" stroke-width="1.8" fill="none" stroke-linecap="round"/>${occhi}
+      <path d="M49 47Q47 52 50 52.5" stroke="${scuro}" stroke-width="1.4" fill="none" stroke-linecap="round"/><circle cx="37" cy="52" r="3.2" fill="#F08080" opacity=".25"/><circle cx="63" cy="52" r="3.2" fill="#F08080" opacity=".25"/>
+      <path class="av-bocca" d="M44 57Q50 ${stato === "casa" ? 62 : 60} 56 57" stroke="#7A3B2E" stroke-width="1.8" fill="none" stroke-linecap="round"/>${barba}${occh}</g></svg>`;
+}
+// batteria del telefono: quella scelta, altrimenti la trovo da sola sullo stesso dispositivo del tracker (app di Home Assistant)
+function batteriaDi(el, id) {
+  const stessoDisp = (pred) => { const e = S.entita.find((x) => x.id === (el.tracker || id)); if (!e || !e.dispositivo) return null; const c = S.entita.find((x) => x.dispositivo === e.dispositivo && x.id !== e.id && pred(x.id)); return c ? c.id : null; };
+  const liv = el.batteria && st(el.batteria) ? el.batteria : stessoDisp((x) => x.startsWith("sensor.") && attr(x, "device_class") === "battery" && attr(x, "unit_of_measurement") === "%");
+  const car = el.stato_batteria && st(el.stato_batteria) ? el.stato_batteria : stessoDisp((x) => /battery_state|stato_batteria/.test(x));
+  if (!liv) return null;
+  const v = Number(st(liv).state); if (!isFinite(v)) return null;
+  return { v: Math.round(v), carica: !!car && /charg|carica|full|piena/i.test(st(car).state) && !/not|discharg|non/i.test(st(car).state) };
+}
+function pillolaBatteria(b) {
+  const c = b.v <= 15 ? "var(--rosso,#EF4444)" : b.v <= 35 ? "#F59E0B" : "var(--verde,#22C55E)";
+  return `<span class="batt-p" title="Batteria del telefono"><i class="batt" style="--l:${Math.max(4, b.v)}%;--bc:${c}"></i>${b.v}%${b.carica ? '<b class="fulmine">⚡</b>' : ""}</span>`;
+}
+function avatarPersona(el, id, nome, casa) {
+  const a = el.avatar || {}, tipo = a.tipo || "animato";
+  const foto = el.persona ? attr(el.persona, "entity_picture") : dom(id) === "person" ? attr(id, "entity_picture") : null;
+  if (tipo === "foto" && foto) return `<img src="${esc(foto)}" alt="">`;
+  if (tipo === "iniziale") return esc(nome.slice(0, 1));
+  return avatarSvg({ ...avatarBase(nome), ...a }, casa ? "casa" : "fuori");
+}
+vPersoneHome = function () {
+  const els = (((S.cfg.sez_gen || {}).persone || {}).elementi || []).filter((x) => (x.tracker && st(x.tracker)) || (x.persona && st(x.persona)));
+  const coperte = new Set(els.map((x) => x.persona).filter(Boolean));
+  const lista = [...els.map((el) => ({ el, id: el.tracker && st(el.tracker) ? el.tracker : el.persona })), ...tutteId().filter((id) => dom(id) === "person" && !coperte.has(id)).map((id) => ({ el: {}, id }))];
+  if (!lista.length) return "";
+  const dove = (id) => { const v = st(id).state; return v === "home" ? "In casa" : v === "not_home" ? "Fuori" : v; };
+  const da = (id) => { const m = Math.round((Date.now() - new Date(st(id).last_changed)) / 60000); return m < 1 ? "ora" : m < 60 ? m + " min fa" : m < 1440 ? Math.round(m / 60) + " ore fa" : Math.round(m / 1440) + " giorni fa"; };
+  return `<section class="persone-home">${lista.map(({ el, id }) => {
+    const casa = st(id).state === "home", nome = el.nome || nomeE(id), b = batteriaDi(el, id);
+    const extra = [el.orologio && st(el.orologio) ? "⌚ " + testoStato(el.orologio) : "", !casa && el.rientro && st(el.rientro) ? "a casa in " + testoStato(el.rientro) : !casa && el.distanza && st(el.distanza) ? testoStato(el.distanza) + " da casa" : ""].filter(Boolean).join(" · ");
+    return `<div class="persona-c ${casa ? "casa" : ""}"><div class="avatar av-anim">${avatarPersona(el, id, nome, casa)}</div><div style="min-width:0"><b>${esc(nome)}</b><span class="badge ${casa ? "casa" : "fuori"}">${esc(dove(id))}</span><div class="pers-info">${b ? pillolaBatteria(b) : ""}<small>${da(id)}${extra ? " · " + esc(extra) : ""}</small></div></div></div>`;
+  }).join("")}</section>`;
+};
+// editor dell'avatar, dentro Impostazioni › Persone
+function editorAvatar(i, el) {
+  const a = { ...avatarBase(el.nome || ""), ...(el.avatar || {}) }, tipo = (el.avatar || {}).tipo || "animato", P = `${i}|`;
+  const chipT = (k, l) => `<div class="av-riga"><span>${{ capelli: "Capelli", barba: "Barba", occhiali: "Occhiali" }[k]}</span><div class="chips-av">${l.map(([v, n]) => `<button class="${a[k] === v ? "on" : ""}" data-nx-av="${P}${k}|${v}">${n}</button>`).join("")}</div></div>`;
+  const chipC = (k, n, l) => `<div class="av-riga"><span>${n}</span><div class="chips-av">${l.map((c) => `<button class="colore ${a[k] === c ? "on" : ""}" style="--c:${c}" data-nx-av="${P}${k}|${c}" aria-label="${n} ${c}"></button>`).join("")}</div></div>`;
+  return `<div class="ed-av"><div class="av-anteprima"><div class="avatar av-anim grande">${tipo === "animato" ? avatarSvg(a, "casa") : ""}</div><div class="chips-av" style="justify-content:center">${[["animato", "Animato"], ["foto", "Foto"], ["iniziale", "Iniziale"]].map(([v, n]) => `<button class="${tipo === v ? "on" : ""}" data-nx-av="${P}tipo|${v}">${n}</button>`).join("")}</div><button class="btn pic" data-nx-av-caso="${i}">🎲 A caso</button></div>
+    ${tipo === "animato" ? `<div class="av-scelte">${chipC("pelle", "Pelle", AV.pelle)}${chipT("capelli", AV.capelli)}${chipC("col_capelli", "Colore capelli", AV.col_capelli)}${chipT("barba", AV.barba)}${chipT("occhiali", AV.occhiali)}${chipC("maglia", "Maglia", AV.maglia)}${chipC("sfondo", "Sfondo", AV.sfondo)}</div>` : `<p class="mut">${tipo === "foto" ? "Usa la foto della persona in Home Assistant (Impostazioni › Persone di Home Assistant)." : "Mostra la prima lettera del nome."}</p>`}</div>`;
+}
+const _pannelloPersone0 = pannelloPersone;
+pannelloPersone = function () {
+  const h0 = _pannelloPersone0(), els = elementiDi("persone");
+  const parti = h0.split('<div class="ed-box elem-ed">');
+  for (let k = 1; k < parti.length; k++) {
+    const el = els[k - 1] || {}, ins = `<div class="gruppo">Avatar</div>${editorAvatar(k - 1, el)}`;
+    let fine = parti[k].length; const coda = parti[k].indexOf('<div class="riga" style="margin-top:8px"><button class="btn pic p" data-nx-el-add');
+    if (coda >= 0) fine = parti[k].lastIndexOf("</div>", coda); else fine = parti[k].lastIndexOf("</div>");
+    if (fine >= 0) parti[k] = parti[k].slice(0, fine) + ins + parti[k].slice(fine);
+  }
+  const h = parti.join('<div class="ed-box elem-ed">');
+  return h.replace("Per ogni persona: il telefono, l'orologio e i tempi di rientro.", "Per ogni persona: avatar, telefono, orologio e tempi di rientro. La batteria del telefono la trovo da sola se c'è l'app di Home Assistant: sceglila solo se non compare.");
+};
+document.addEventListener("click", async (ev) => {
+  const t = ev.target.closest("button"); if (!t) return;
+  if (t.dataset.nxAv) { const [i, k, v] = t.dataset.nxAv.split("|"); await impostaCfg(`sez_gen.persone.elementi.${i}.avatar.${k}`, v); return disegna(); }
+  if (t.dataset.nxAvCaso !== undefined) { const i = t.dataset.nxAvCaso, r = (l) => l[Math.floor(Math.random() * l.length)]; await impostaCfg(`sez_gen.persone.elementi.${i}.avatar`, { tipo: "animato", pelle: r(AV.pelle), capelli: r(AV.capelli)[0], col_capelli: r(AV.col_capelli), barba: r([["no"], ["no"], ["barba"], ["baffi"]])[0], occhiali: r([["no"], ["no"], ["tondi"], ["quadrati"], ["sole"]])[0], maglia: r(AV.maglia), sfondo: r(AV.sfondo) }); return disegna(); }
+});
