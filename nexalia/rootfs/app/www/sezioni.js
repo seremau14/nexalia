@@ -1292,7 +1292,7 @@ const TIPI3D = [
   [/bagn|wc|toilet|servizi/, "bagno", ["doccia", "water", "bidet", "lavandino", "lavatrice"], "repeating-linear-gradient(0deg,#2a3a48 0 26px,#243241 26px 28px),repeating-linear-gradient(90deg,#2a3a48 0 26px,#243241 26px 28px)"],
   [/camer|letto|bedroom|ospit/, "camera", ["letto", "comodino", "comodino", "armadio", "tappeto", "pianta"], "repeating-linear-gradient(90deg,#4a3a2c 0 34px,#43342a 34px 36px)"],
   [/cucin|kitchen|cottur/, "cucina", ["cucina", "frigo", "tavolo"], "repeating-linear-gradient(45deg,#33404d 0 18px,#2d3945 18px 36px)"],
-  [/sogg|salott|^sala|\bsala\b|living|salon|tavern/, "soggiorno", ["divano", "tv", "tappeto", "poltrona", "pianta", "libreria"], "repeating-linear-gradient(90deg,#4a3a2c 0 34px,#43342a 34px 36px)"],
+  [/sogg|salott|\bsala\b|living|salon|tavern/, "soggiorno", ["divano", "tv", "tappeto", "poltrona", "pianta", "libreria"], "repeating-linear-gradient(90deg,#4a3a2c 0 34px,#43342a 34px 36px)"],
   [/studi|uffic|office/, "studio", ["scrivania", "libreria", "poltrona", "pianta"], "repeating-linear-gradient(90deg,#4a3a2c 0 34px,#43342a 34px 36px)"],
   [/lavand|ripost|lavator/, "lavanderia", ["lavatrice", "lavandino"], "repeating-linear-gradient(0deg,#2a3a48 0 26px,#243241 26px 28px)"],
 ];
