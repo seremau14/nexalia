@@ -1,5 +1,8 @@
 # Novità
 
+## 1.12.1
+- Casa 3D: "Arreda in automatico" riconosce anche le stanze chiamate "Sala" come soggiorno.
+
 ## 1.12.0
 - Casa 3D tridimensionale: le stanze hanno muri e pavimenti (piastrelle, parquet) e si possono arredare con mobili 3D.
   - Mobili disponibili: letto matrimoniale e singolo, comodino con lampada, armadio, doccia, vasca, water, bidet, lavandino con specchio, lavatrice, cucina, frigorifero, tavolo con sedie, divano, poltrona, mobile TV, scrivania, libreria, pianta, tappeto.
