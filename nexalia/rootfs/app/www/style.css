@@ -708,3 +708,19 @@ body.chiaro .scelte-grandi button{background:#fff;border-color:#d9dee5}
 @media (max-width:600px){.barra-rapida{justify-content:flex-start}.barra-rapida button{min-width:62px;padding:8px 6px 6px}}
 body.con-barra-rapida #vista{padding-bottom:110px}
 body.chiaro .barra-rapida{background:rgba(255,255,255,.98);box-shadow:0 -8px 24px rgba(20,30,45,.14)}
+/* Casa 3D: muri e mobili */
+.b3{position:absolute;transform-style:preserve-3d;pointer-events:none;display:block}
+.f3{position:absolute;left:0;top:0;transform-origin:0 0;display:block}
+.pav3d{position:absolute;inset:0;border-radius:4px;opacity:.55;pointer-events:none}
+.c3d-stanza.luce .pav3d{opacity:.35}
+.muri3d,.mobili3d{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}
+.arr3d{position:absolute;transform-style:preserve-3d;transform-origin:50% 50%;pointer-events:none}
+.modifica .arr3d{pointer-events:auto;cursor:grab;outline:1px dashed rgba(160,190,220,.35)}
+.modifica .arr3d.sel{outline:2px solid var(--blu);z-index:6}
+.c3d-scena:not(.modifica) .c3d-pin{transform:translateZ(60px)}
+.c3d-stanza .nome-st,.c3d-stanza .temp-st{transform:translateZ(40px);z-index:3;text-shadow:0 1px 3px #000}
+.mobili3d.luce-on .lampada3d .f3{background:#fff3c4!important;box-shadow:0 0 22px 6px rgba(255,214,120,.7)}
+.mobili3d.tv-on .schermo3d .f3{background:#5AB0FF!important;box-shadow:0 0 18px rgba(90,176,255,.8)}
+.mobili3d.lav-on .oblo3d .f3{background:#5AB0FF!important;animation:oblo3d 1s linear infinite}
+@keyframes oblo3d{50%{opacity:.5}}
+.barra3d.arr select{min-height:36px;border-radius:10px;padding:0 10px;background:var(--card2,#1B2532);color:inherit;border:1px solid rgba(160,190,220,.3)}

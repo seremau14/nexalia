@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.11.0";
+const VERSIONE = "1.12.0";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -38,6 +38,7 @@ const CONFIG_BASE = {
   nascoste: [],          // entità da non mostrare
   posizioni: {},         // casa 3D: {entity_id: {x, y}}  (percentuali nella stanza)
   pianta: {},            // casa 3D: {stanza_id: {x, y, w, h}} in celle
+  arredi: {},            // casa 3D: {stanza_id: [{t, x, y, r}]} mobili 3D, x/y in celle dentro la stanza
   energia: { solare: "", rete: "", batteria: "", batteria_livello: "", casa: "", contatore_kw: 3, differibili: [] },
   agente: { notifica: "", spegni_luci_uscita: false, avvisa_consumi: true, avvisa_finestre_pioggia: true },
   raccolta: { attiva: false, ora: "20:00", calendario: {} },   // calendario: {"1":"Organico", ...} giorno settimana 1-7 -> tipo (sera prima)
@@ -560,7 +561,7 @@ function corpo(req, max = 2e6) {
   });
 }
 
-const CHIAVI_MODIFICABILI = ["mie_entita", "stanze_cfg", "sez_gen", "mie_sezioni", "generali", "pastiglie", "antifurto", "widget", "azioni", "aspetto", "assist", "personalizza", "sezioni_ordine", "home", "stanze", "nascoste", "posizioni", "pianta", "energia", "agente", "raccolta", "sezioni", "tema"];
+const CHIAVI_MODIFICABILI = ["mie_entita", "stanze_cfg", "sez_gen", "mie_sezioni", "generali", "pastiglie", "antifurto", "widget", "azioni", "aspetto", "assist", "personalizza", "sezioni_ordine", "home", "stanze", "nascoste", "posizioni", "pianta", "arredi", "energia", "agente", "raccolta", "sezioni", "tema"];
 
 // utente di Home Assistant che sta guardando (Home Assistant lo passa a Nexalia con l'ingress)
 function utenteDi(req) {

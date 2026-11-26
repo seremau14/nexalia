@@ -1246,3 +1246,178 @@ pannelli = function () {
 };
 // chi aveva aperta la vecchia pagina "Impostazioni" e cercava la barra la ritrova
 if (localStorage.getItem("nx_pannello") === null) localStorage.setItem("nx_pannello", "generali");
+
+// ================================================================== Casa 3D: muri e mobili tridimensionali
+// I mobili li sceglie e li posiziona l'utente (Modifica → tocca una stanza → Aggiungi mobile).
+// "Arreda in automatico" è solo un aiuto facoltativo. Misure in celle (1 cella ≈ 1 metro).
+const MURO3D = { h: 0.5, s: 0.08, col: "#3A4656" };
+const sh3 = (c, k) => { const n = parseInt(c.slice(1), 16); const t = (v) => Math.min(255, Math.round(v * k)); return `rgb(${t(n >> 16)},${t((n >> 8) & 255)},${t(n & 255)})`; };
+function box3(x, y, z, w, d, h, col, o = {}) {
+  const U = CELLA, W = w * U, D = d * U, H = h * U, a = o.a == null ? 1 : o.a, rad = o.rad || 0, cl = o.cl ? " " + o.cl : "";
+  const f = (css, c) => `<i class="f3" style="${css};background:${c};opacity:${a};border-radius:${rad}px"></i>`;
+  return `<b class="b3${cl}" style="left:${x * U}px;top:${y * U}px;width:${W}px;height:${D}px;transform:translateZ(${z * U}px)">`
+    + f(`width:${W}px;height:${H}px;transform:rotateX(90deg)`, sh3(col, 0.66))
+    + f(`width:${D}px;height:${H}px;transform:rotateZ(90deg) rotateX(90deg)`, sh3(col, 0.6))
+    + f(`width:${D}px;height:${H}px;transform:translateX(${W}px) rotateZ(90deg) rotateX(90deg)`, sh3(col, 0.8))
+    + f(`width:${W}px;height:${H}px;transform:translateY(${D}px) rotateX(90deg)`, sh3(col, 0.92))
+    + f(`width:${W}px;height:${D}px;transform:translateZ(${H}px)`, o.top || sh3(col, 1.12)) + `</b>`;
+}
+const LEGNO = "#7a5a41", LEGNO_SC = "#6b4f3a", BIANCO = "#eef3f8", VETRO = "#9fd3ff";
+const tondoTop = (dentro, fuori, p = 38) => `radial-gradient(ellipse at 50% 50%,${dentro} 0 ${p}%,${fuori} ${p + 2}%)`;
+// ogni mobile: nome, w × d (pianta), parti = [x, y, z, w, d, h, colore, opzioni]
+const MOBILI3D = {
+  letto:      { nome: "Letto matrimoniale", w: 1.6, d: 2.0, parti: [[0, 0, 0, 1.6, .1, .7, LEGNO_SC], [0, .1, 0, 1.6, 1.9, .22, LEGNO], [.03, .12, .22, 1.54, 1.85, .14, "#eef1f5", { rad: 5 }], [.12, .2, .36, .62, .35, .1, "#ffffff", { rad: 8 }], [.86, .2, .36, .62, .35, .1, "#ffffff", { rad: 8 }], [.02, .75, .36, 1.56, 1.2, .05, "#5AB0FF", { rad: 5 }]] },
+  letto1:     { nome: "Letto singolo", w: .9, d: 2.0, parti: [[0, 0, 0, .9, .1, .6, LEGNO_SC], [0, .1, 0, .9, 1.9, .22, LEGNO], [.03, .12, .22, .84, 1.85, .14, "#eef1f5", { rad: 5 }], [.15, .2, .36, .6, .33, .1, "#ffffff", { rad: 8 }], [.02, .75, .36, .86, 1.2, .05, "#4CC38A", { rad: 5 }]] },
+  comodino:   { nome: "Comodino con lampada", w: .45, d: .4, parti: [[0, 0, 0, .45, .4, .4, LEGNO_SC], [.15, .13, .4, .15, .15, .04, "#d9b26b"], [.2, .18, .44, .05, .05, .2, "#d9b26b"], [.1, .08, .62, .25, .25, .16, "#ffe6a8", { rad: 10, cl: "lampada3d" }]] },
+  armadio:    { nome: "Armadio", w: 1.8, d: .6, parti: [[0, 0, 0, 1.8, .6, 1.5, "#55606e"], [.89, .6, .6, .02, .03, .2, "#c9d3dd"]] },
+  doccia:     { nome: "Doccia", w: .9, d: .9, parti: [[0, 0, 0, .9, .9, .05, "#dfe7ef"], [0, .87, 0, .9, .03, 1.1, VETRO, { a: .3 }], [.87, 0, 0, .03, .87, 1.1, VETRO, { a: .3 }], [.3, 0, 1, .3, .08, .03, "#c9d3dd"]] },
+  vasca:      { nome: "Vasca", w: 1.7, d: .75, parti: [[0, 0, 0, 1.7, .75, .5, "#e9eef3", { rad: 6, top: tondoTop("#8fc7ef", "#e9eef3", 55) }]] },
+  water:      { nome: "Water", w: .45, d: .7, parti: [[.05, 0, 0, .35, .18, .7, BIANCO], [.06, .18, 0, .33, .5, .36, "#f4f7fa", { rad: 10, top: tondoTop("#cfd9e3", "#f4f7fa") }]] },
+  bidet:      { nome: "Bidet", w: .4, d: .55, parti: [[.04, .04, 0, .32, .5, .36, "#f4f7fa", { rad: 10, top: tondoTop("#cfd9e3", "#f4f7fa", 30) }]] },
+  lavandino:  { nome: "Lavandino con specchio", w: .8, d: .5, parti: [[0, 0, 0, .8, .48, .62, "#6b5a4a"], [.02, .02, .62, .76, .46, .06, "#f2f5f8", { top: tondoTop("#c4cfda", "#f2f5f8", 30) }], [.15, 0, .85, .5, .03, .45, "#9fc7e8", { a: .7 }]] },
+  lavatrice:  { nome: "Lavatrice", w: .6, d: .6, parti: [[0, 0, 0, .6, .6, .85, BIANCO], [.15, .6, .25, .3, .01, .3, "#8fb6d8", { rad: 30, cl: "oblo3d" }]] },
+  cucina:     { nome: "Cucina (mobili)", w: 2.4, d: .6, parti: [[0, 0, 0, 2.4, .6, .8, "#c9cfd6"], [0, 0, .8, 2.4, .6, .04, "#3d4652"], [.25, .1, .84, .55, .45, .01, "#1a1f26"], [1.4, .1, .82, .5, .38, .03, "#9aa6b2", { rad: 4 }], [0, 0, 1.35, 2.4, .35, .5, "#d5dbe1"]] },
+  frigo:      { nome: "Frigorifero", w: .6, d: .6, parti: [[0, 0, 0, .6, .6, 1.6, "#dfe5eb"], [.5, .6, .8, .03, .02, .4, "#9aa6b2"]] },
+  tavolo:     { nome: "Tavolo con sedie", w: 1.4, d: 1.5, parti: [[.05, .3, 0, .05, .05, .7, LEGNO_SC], [1.3, .3, 0, .05, .05, .7, LEGNO_SC], [.05, 1.15, 0, .05, .05, .7, LEGNO_SC], [1.3, 1.15, 0, .05, .05, .7, LEGNO_SC], [0, .25, .7, 1.4, .95, .05, LEGNO], [.25, 0, 0, .4, .35, .4, "#5c6773"], [.75, 0, 0, .4, .35, .4, "#5c6773"], [.25, 1.15, 0, .4, .35, .4, "#5c6773"], [.75, 1.15, 0, .4, .35, .4, "#5c6773"]] },
+  divano:     { nome: "Divano", w: 2.0, d: .85, parti: [[0, 0, 0, 2, .25, .75, "#4b5d7a"], [0, .25, 0, 2, .6, .35, "#56698a"], [0, .25, .35, .2, .6, .2, "#4b5d7a"], [1.8, .25, .35, .2, .6, .2, "#4b5d7a"], [.25, .28, .35, .74, .5, .08, "#6378a0", { rad: 4 }], [1.01, .28, .35, .74, .5, .08, "#6378a0", { rad: 4 }]] },
+  poltrona:   { nome: "Poltrona", w: .8, d: .8, parti: [[0, 0, 0, .8, .2, .7, "#7a4f3a"], [0, .2, 0, .8, .6, .35, "#8a5d45"], [0, .2, .35, .12, .6, .15, "#7a4f3a"], [.68, .2, .35, .12, .6, .15, "#7a4f3a"]] },
+  tv:         { nome: "Mobile TV", w: 1.4, d: .4, parti: [[0, 0, 0, 1.4, .4, .4, "#3d4652"], [.15, .12, .4, 1.1, .04, .62, "#14181e", { cl: "schermo3d" }]] },
+  scrivania:  { nome: "Scrivania", w: 1.2, d: .6, parti: [[0, 0, 0, .05, .6, .72, "#55606e"], [1.15, 0, 0, .05, .6, .72, "#55606e"], [0, 0, .72, 1.2, .6, .04, "#c9a77a"], [.4, .05, .76, .45, .04, .3, "#14181e", { cl: "schermo3d" }], [.4, .65, 0, .45, .4, .45, "#3d4652"]] },
+  libreria:   { nome: "Libreria", w: 1.0, d: .35, parti: [[0, 0, 0, 1, .35, 1.4, LEGNO, { top: LEGNO }], [.05, .3, .1, .9, .05, .02, "#c96b5a"], [.05, .3, .5, .9, .05, .02, "#5a8ac9"], [.05, .3, .9, .9, .05, .02, "#c9b25a"]] },
+  pianta:     { nome: "Pianta", w: .5, d: .5, parti: [[.1, .1, 0, .3, .3, .3, "#8a6a50", { rad: 6 }], [0, 0, .3, .5, .5, .45, "#3f8f5a", { rad: 20 }]] },
+  tappeto:    { nome: "Tappeto", w: 1.6, d: 1.1, parti: [[0, 0, 0, 1.6, 1.1, .01, "#3b4f7a", { rad: 4 }]] },
+};
+// arredo suggerito per tipo di stanza (solo con "Arreda in automatico")
+const TIPI3D = [
+  [/bagn|wc|toilet|servizi/, "bagno", ["doccia", "water", "bidet", "lavandino", "lavatrice"], "repeating-linear-gradient(0deg,#2a3a48 0 26px,#243241 26px 28px),repeating-linear-gradient(90deg,#2a3a48 0 26px,#243241 26px 28px)"],
+  [/camer|letto|bedroom|ospit/, "camera", ["letto", "comodino", "comodino", "armadio", "tappeto", "pianta"], "repeating-linear-gradient(90deg,#4a3a2c 0 34px,#43342a 34px 36px)"],
+  [/cucin|kitchen|cottur/, "cucina", ["cucina", "frigo", "tavolo"], "repeating-linear-gradient(45deg,#33404d 0 18px,#2d3945 18px 36px)"],
+  [/sogg|salott|living|salon|tavern/, "soggiorno", ["divano", "tv", "tappeto", "poltrona", "pianta", "libreria"], "repeating-linear-gradient(90deg,#4a3a2c 0 34px,#43342a 34px 36px)"],
+  [/studi|uffic|office/, "studio", ["scrivania", "libreria", "poltrona", "pianta"], "repeating-linear-gradient(90deg,#4a3a2c 0 34px,#43342a 34px 36px)"],
+  [/lavand|ripost|lavator/, "lavanderia", ["lavatrice", "lavandino"], "repeating-linear-gradient(0deg,#2a3a48 0 26px,#243241 26px 28px)"],
+];
+const tipo3d = (s) => TIPI3D.find(([re]) => re.test((s.nome || "").toLowerCase() + " " + (s.id || ""))) || null;
+let selArr = null; // "stanzaId|indice"
+const arrediDi = (sid) => ((S.cfg.arredi || {})[sid] || []);
+const ingombro = (m) => { const k = MOBILI3D[m.t] || { w: 1, d: 1 }; return (m.r || 0) % 180 ? { w: k.d, d: k.w } : { w: k.w, d: k.d }; };
+function statoStanza3d(s) {
+  const ids = s.entita || [], on = (id) => ACCESO.includes((st(id) || {}).state);
+  const tv = ids.some((id) => dom(id) === "media_player" && on(id));
+  const lav = ids.some((id) => /lavatric|washing|washer/.test((id + " " + nomeE(id)).toLowerCase()) && (on(id) || (dom(id) === "sensor" && Number((st(id) || {}).state) > 5)));
+  return { luce: ids.some((id) => eLuce(id) && on(id)), tv, lav };
+}
+function htmlMobile(m, i, sid) {
+  const k = MOBILI3D[m.t]; if (!k) return "";
+  const ig = ingombro(m), left = m.x + (ig.w - k.w) / 2, top = m.y + (ig.d - k.d) / 2, sel = selArr === sid + "|" + i;
+  return `<div class="arr3d${sel ? " sel" : ""}" data-arr="${esc(sid)}|${i}" title="${esc(k.nome)}" style="left:${left * CELLA}px;top:${top * CELLA}px;width:${k.w * CELLA}px;height:${k.d * CELLA}px;transform:rotateZ(${m.r || 0}deg)">${k.parti.map((p) => box3(...p)).join("")}</div>`;
+}
+function htmlMuri(r) {
+  const { h, s, col } = MURO3D;
+  return `<div class="muri3d">${box3(0, 0, 0, r.w, s, h, col)}${box3(0, r.h - s, 0, r.w, s, h, col)}${box3(0, s, 0, s, r.h - 2 * s, h, col)}${box3(r.w - s, s, 0, s, r.h - 2 * s, h, col)}</div>`;
+}
+const _vCasa3dArr = vCasa3d;
+vCasa3d = function () {
+  let h = _vCasa3dArr();
+  if (!completa() || !h.includes('id="scena3d"')) return h;
+  const { ss, p } = piantaStanze();
+  for (const s of ss) {
+    const r = p[s.id]; if (!r) continue;
+    const tp = tipo3d(s), stt = statoStanza3d(s), cls = [stt.tv && "tv-on", stt.lav && "lav-on", stt.luce && "luce-on"].filter(Boolean).join(" ");
+    const dentro = `<div class="pav3d" style="background:${tp ? tp[3] : "repeating-linear-gradient(90deg,#334050 0 34px,#2e3a49 34px 36px)"}"></div>${htmlMuri(r)}<div class="mobili3d ${cls}">${arrediDi(s.id).map((m, i) => htmlMobile(m, i, s.id)).join("")}</div>`;
+    h = h.replace(new RegExp(`(data-st3d="${s.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>)`), `$1${dentro}`);
+  }
+  if (modifica3d) {
+    const m = selArr && (() => { const [sid, i] = selArr.split("|"); return arrediDi(sid)[+i]; })();
+    if (m) {
+      h = h.replace(/<div class="barra3d[\s\S]*?<\/div>(?=<div class="c3d-scena)/, `<div class="barra3d"><b>${esc(MOBILI3D[m.t].nome)}</b><span class="dim">trascinalo dove vuoi</span>
+        <span class="g3d"><button class="btn pic" data-arr3d="ruota">↻ Ruota</button><button class="btn pic" data-arr3d="togli">Togli</button><button class="btn pic" data-arr3d="chiudi">Fatto</button></span></div>`);
+    } else if (sel3d) {
+      const s = stanze().find((x) => x.id === sel3d), tp = s && tipo3d(s);
+      const opz = Object.entries(MOBILI3D).map(([k, v]) => `<option value="${k}">${esc(v.nome)}</option>`).join("");
+      const riga = `<div class="barra3d arr"><span class="g3d"><select data-arr3d-agg><option value="">＋ Aggiungi mobile…</option>${opz}</select></span>
+        <span class="g3d">${tp ? `<button class="btn pic" data-arr3d="auto">Arreda in automatico</button>` : ""}${arrediDi(sel3d).length ? `<button class="btn pic" data-arr3d="svuota">Togli tutti i mobili</button>` : ""}</span>
+        <span class="dim">Tocca un mobile per spostarlo, ruotarlo o toglierlo.</span></div>`;
+      h = h.replace('<div class="c3d-scena modifica"', riga + '<div class="c3d-scena modifica"');
+    }
+  }
+  return h;
+};
+// cerca un posto libero nella stanza (lungo i muri prima, poi al centro)
+function postoLibero(r, lista, t, preferCentro) {
+  const k = MOBILI3D[t], M = 0.1, passo = 0.25;
+  const libero = (x, y, w, d) => x >= M - 1e-6 && y >= M - 1e-6 && x + w <= r.w - M + 1e-6 && y + d <= r.h - M + 1e-6 && lista.every((o) => { const g = ingombro(o); return x + w <= o.x + 1e-6 || o.x + g.w <= x + 1e-6 || y + d <= o.y + 1e-6 || o.y + g.d <= y + 1e-6; });
+  const cand = [];
+  const cx = (r.w - k.w) / 2, cy = (r.h - k.d) / 2;
+  if (preferCentro) cand.push([tondo(cx), M, 0], [tondo(cx), tondo(cy), 0]);
+  for (let x = M; x + k.w <= r.w; x += passo) cand.push([x, M, 0]);                          // muro in alto
+  for (let y = M; y + k.w <= r.h; y += passo) cand.push([M, y, 270]);                        // muro a sinistra
+  for (let y = M; y + k.w <= r.h; y += passo) cand.push([r.w - M - k.d, y, 90]);             // muro a destra
+  for (let x = M; x + k.w <= r.w; x += passo) cand.push([x, r.h - M - k.d, 180]);            // muro in basso
+  for (let y = M; y + k.d <= r.h; y += passo) for (let x = M; x + k.w <= r.w; x += passo) cand.push([x, y, 0]);
+  for (const [x, y, rr] of cand) { const g = rr % 180 ? { w: k.d, d: k.w } : { w: k.w, d: k.d }; if (libero(x, y, g.w, g.d)) return { t, x: tondo(x), y: tondo(y), r: rr }; }
+  return null;
+  function tondo(v) { return Math.round(v * 100) / 100; }
+}
+async function salvaArredi(sid, lista) { await salvaCfg({ arredi: { ...(S.cfg.arredi || {}), [sid]: lista } }); disegna(); }
+document.addEventListener("change", (ev) => {
+  const t = ev.target.closest("select[data-arr3d-agg]"); if (!t || !t.value || !sel3d) return;
+  const r = piantaStanze().p[sel3d], lista = [...arrediDi(sel3d)];
+  const pos = postoLibero(r, lista, t.value, ["letto", "letto1", "tavolo", "tappeto"].includes(t.value)) || { t: t.value, x: 0.25, y: 0.25, r: 0 };
+  lista.push(pos); selArr = sel3d + "|" + (lista.length - 1); salvaArredi(sel3d, lista);
+});
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-arr3d]"); if (!b) return;
+  const a = b.dataset.arr3d;
+  if (a === "chiudi") { selArr = null; return disegna(); }
+  if (a === "auto" || a === "svuota") {
+    if (!sel3d) return;
+    const s = stanze().find((x) => x.id === sel3d), tp = tipo3d(s), r = piantaStanze().p[sel3d];
+    if (a === "svuota") { if (!confirm("Togliere tutti i mobili da questa stanza?")) return; return salvaArredi(sel3d, []); }
+    if (arrediDi(sel3d).length && !confirm("Sostituire i mobili di questa stanza con quelli suggeriti?")) return;
+    const lista = [];
+    const centro = ["letto", "letto1", "tavolo", "tappeto"];
+    // il letto va al centro del muro in alto, poi i comodini ai suoi lati
+    for (const t of tp[2]) {
+      let pos = null; const letto = lista.find((o) => o.t === "letto" || o.t === "letto1");
+      if (t === "comodino" && letto) { const lx = [letto.x - 0.5, letto.x + ingombro(letto).w + 0.05]; for (const x of lx) { const prova = { t, x, y: letto.y, r: 0 }; if (x >= 0.1 && x + 0.45 <= r.w - 0.1 && !lista.some((o) => o !== letto && o.t === "comodino" && Math.abs(o.x - x) < 0.3)) { pos = prova; break; } } }
+      if (t === "tappeto") { const g = MOBILI3D.tappeto; const tx = Math.round(((r.w - g.w) / 2) * 4) / 4, ty = Math.round(((r.h - g.d) / 2 + (letto ? 0.5 : 0)) * 4) / 4; if (ty + g.d <= r.h - 0.1) pos = { t, x: tx, y: ty, r: 0 }; }
+      if (!pos) pos = postoLibero(r, lista.filter((o) => o.t !== "tappeto"), t, centro.includes(t));
+      if (pos) lista.push(pos);
+    }
+    return salvaArredi(sel3d, lista);
+  }
+  if (!selArr) return;
+  const [sid, i] = selArr.split("|"), lista = [...arrediDi(sid)], m = lista[+i]; if (!m) return;
+  if (a === "togli") { lista.splice(+i, 1); selArr = null; return salvaArredi(sid, lista); }
+  if (a === "ruota") {
+    const r = piantaStanze().p[sid], vecchio = ingombro(m), n = { ...m, r: ((m.r || 0) + 90) % 360 }, g = ingombro(n);
+    n.x = Math.max(0.1, Math.min(r.w - g.w - 0.1, m.x + (vecchio.w - g.w) / 2)); n.y = Math.max(0.1, Math.min(r.h - g.d - 0.1, m.y + (vecchio.d - g.d) / 2));
+    n.x = Math.max(0, Math.min(r.w - g.w, Math.round(n.x * 4) / 4)); n.y = Math.max(0, Math.min(r.h - g.d, Math.round(n.y * 4) / 4)); lista[+i] = n; return salvaArredi(sid, lista);
+  }
+});
+document.addEventListener("click", (ev) => { if (ev.target.closest("[data-modifica3d]")) selArr = null; }, true);
+// trascinare i mobili in Modifica (prima della gestione delle stanze)
+const _dopoCasa3dArr = dopoCasa3d;
+dopoCasa3d = function () {
+  _dopoCasa3dArr();
+  const scena = $("#scena3d"); if (!scena) return;
+  scena.addEventListener("pointerdown", (e) => {
+    if (!modifica3d) return;
+    const el = e.target.closest("[data-arr]"); if (!el) { selArr = null; return; }
+    e.stopPropagation(); e.preventDefault();
+    const [sid, i] = el.dataset.arr.split("|"), lista = [...arrediDi(sid)], m = lista[+i], r = piantaStanze().p[sid], g = ingombro(m), k = MOBILI3D[m.t], z = vista3d.z;
+    const x0 = e.clientX, y0 = e.clientY; let mosso = false, nx = m.x, ny = m.y;
+    const muovi = (ev) => {
+      const dx = (ev.clientX - x0) / (CELLA * z), dy = (ev.clientY - y0) / (CELLA * z);
+      if (Math.abs(dx) + Math.abs(dy) > 0.08) mosso = true;
+      nx = Math.round(Math.max(0, Math.min(r.w - g.w, m.x + dx)) * 4) / 4; ny = Math.round(Math.max(0, Math.min(r.h - g.d, m.y + dy)) * 4) / 4;
+      el.style.left = (nx + (g.w - k.w) / 2) * CELLA + "px"; el.style.top = (ny + (g.d - k.d) / 2) * CELLA + "px";
+    };
+    const fine = () => {
+      window.removeEventListener("pointermove", muovi); window.removeEventListener("pointerup", fine);
+      selArr = sid + "|" + i; sel3d = sid;
+      if (mosso) { lista[+i] = { ...m, x: nx, y: ny }; salvaArredi(sid, lista); } else disegna();
+    };
+    window.addEventListener("pointermove", muovi); window.addEventListener("pointerup", fine);
+  }, true);
+};

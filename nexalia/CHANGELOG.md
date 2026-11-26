@@ -1,5 +1,12 @@
 # Novità
 
+## 1.12.0
+- Casa 3D tridimensionale: le stanze hanno muri e pavimenti (piastrelle, parquet) e si possono arredare con mobili 3D.
+  - Mobili disponibili: letto matrimoniale e singolo, comodino con lampada, armadio, doccia, vasca, water, bidet, lavandino con specchio, lavatrice, cucina, frigorifero, tavolo con sedie, divano, poltrona, mobile TV, scrivania, libreria, pianta, tappeto.
+  - I mobili li scegli tu: Modifica → tocca una stanza → "Aggiungi mobile". Poi li trascini dove vuoi, li ruoti o li togli.
+  - "Arreda in automatico" (facoltativo) propone un arredo in base al nome della stanza: bagno, camera, cucina, soggiorno, studio, lavanderia.
+  - Collegati alla casa: con la luce accesa si illuminano le lampade, con la TV accesa si illumina lo schermo, con la lavatrice in funzione si anima l'oblò.
+
 ## 1.11.0
 - Impostazioni più chiare: la vecchia pagina unica è divisa in pagine corte.
   - Plancia: Generali, Home, **Barra in fondo e sezioni** (nuova), Widget, Azioni, **Assistente e voce** (nuova), Licenza, Collega da fuori casa.
