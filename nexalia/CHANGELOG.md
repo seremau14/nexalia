@@ -1,5 +1,11 @@
 # Novità
 
+## 1.11.0
+- Impostazioni più chiare: la vecchia pagina unica è divisa in pagine corte.
+  - Plancia: Generali, Home, **Barra in fondo e sezioni** (nuova), Widget, Azioni, **Assistente e voce** (nuova), Licenza, Collega da fuori casa.
+  - Nuova categoria **Avanzate**: Automazioni, A muro, Le tue entità, Le tue sezioni, Dispositivi nascosti, Backup, **Manutenzione** (nuova), Runtime.
+  - Ogni pagina nuova ha una riga che spiega a cosa serve.
+
 ## 1.10.2
 - Barra rapida ancorata in fondo allo schermo, a tutta larghezza e con fondo pieno: sempre allo stesso posto, non si confonde più con i riquadri. Icone e scritte più grandi.
 

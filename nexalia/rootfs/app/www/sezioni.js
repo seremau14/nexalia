@@ -1211,3 +1211,38 @@ pannelli = function () {
   return P;
 };
 document.addEventListener("click", async (ev) => { if (!ev.target.closest("[data-nx-pulita]")) return; await salvaCfg({ home: { ...S.cfg.home, pulita: !homePulita() } }); disegna(); });
+
+// ================================================================== Impostazioni più chiare: pagine corte, le cose più usate in cima, il resto in "Avanzate"
+CAT_ED.avanzate = "Avanzate";
+{ const t = CAT_ED.tutte; delete CAT_ED.tutte; CAT_ED.tutte = t; }
+const ORDINE_CHIARO = ["generali", "home", "barra", "widget", "azioni", "assistente", "licenza", "fuori",
+  "automazioni", "muro", "entita", "mie", "nascosti", "backup", "manutenzione", "runtime"];
+const _pannelliChiari = pannelli;
+pannelli = function () {
+  const P = _pannelliChiari();
+  if (!P.generali) return P;
+  const tutto = P.generali.html;
+  // la vecchia pagina unica viene divisa nei suoi pezzi
+  const pezzi = () => {
+    const h = tutto(), mA = '<div class="gruppo">Assistente', mS = '<div class="gruppo">Sezioni e ordine della barra</div>', mR = '<div class="gruppo">Rilevamento e manutenzione</div>', mB = '<div class="gruppo">Barra rapida in fondo</div>';
+    const iA = h.indexOf(mA), iS = h.indexOf(mS), iR = h.indexOf(mR), iB = h.indexOf(mB);
+    const fine = (i, ...altri) => Math.min(...altri.filter((x) => x > i), h.length);
+    const cut = (i, ...altri) => (i < 0 ? "" : h.slice(i, fine(i, ...altri)));
+    const primi = [iA, iS, iR, iB].filter((x) => x >= 0);
+    return { gen: h.slice(0, primi.length ? Math.min(...primi) : h.length), ass: cut(iA, iS, iR, iB), sez: cut(iS, iA, iR, iB), man: cut(iR, iA, iS, iB), bar: cut(iB, iA, iS, iR) };
+  };
+  const riga = (t) => `<p class="mut" style="margin-top:0">${t}</p>`;
+  const N = {
+    generali: { ...P.generali, tit: "Generali", kw: "generali nome casa utente amministratore admin schermo tema chiaro scuro chiosco intestazione icone colorate predefinita", html: () => pezzi().gen },
+    barra: { cat: "plancia", ic: "comandi", tit: "Barra in fondo e sezioni", kw: "barra rapida fondo icone navbar tasti sezioni ordine barra in alto ingranaggio", html: () => riga("Qui scegli i tasti della barra in fondo allo schermo (Home, Casa 3D, Rifiuti…) e quali sezioni esistono nella plancia.") + pezzi().bar + pezzi().sez.replace("Sezioni e ordine della barra", "Sezioni della plancia: quali esistono e in che ordine") },
+    assistente: { cat: "plancia", ic: "agente", tit: "Assistente e voce", kw: "assist chat assistente modello ai gemini claude voce leggi risposta piper altoparlante carattere personalità maggiordomo", html: () => riga("L'assistente che risponde nella casella \"Chiedi a Nexalia\", la sua voce e il suo carattere.") + pezzi().ass },
+    manutenzione: { cat: "avanzate", ic: "aiuto", tit: "Manutenzione", kw: "diagnosi autorilevamento reset rileva manutenzione", html: () => riga("Strumenti per controllare cosa vede Nexalia, rilevare di nuovo i dispositivi o ripartire da zero.") + pezzi().man },
+  };
+  for (const k of ["automazioni", "muro", "entita", "mie", "nascosti", "backup", "runtime"]) if (P[k]) P[k] = { ...P[k], cat: "avanzate" };
+  const tuttiP = { ...P, ...N }, out = {};
+  for (const k of ORDINE_CHIARO) if (tuttiP[k]) out[k] = tuttiP[k];
+  for (const k of Object.keys(tuttiP)) if (!out[k]) out[k] = tuttiP[k];
+  return out;
+};
+// chi aveva aperta la vecchia pagina "Impostazioni" e cercava la barra la ritrova
+if (localStorage.getItem("nx_pannello") === null) localStorage.setItem("nx_pannello", "generali");
