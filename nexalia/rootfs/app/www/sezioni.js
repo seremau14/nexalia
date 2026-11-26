@@ -1311,10 +1311,79 @@ function htmlMobile(m, i, sid) {
   const ig = ingombro(m), left = m.x + (ig.w - k.w) / 2, top = m.y + (ig.d - k.d) / 2, sel = selArr === sid + "|" + i;
   return `<div class="arr3d${sel ? " sel" : ""}" data-arr="${esc(sid)}|${i}" title="${esc(k.nome)}" style="left:${left * CELLA}px;top:${top * CELLA}px;width:${k.w * CELLA}px;height:${k.d * CELLA}px;transform:rotateZ(${m.r || 0}deg)">${k.parti.map((p) => box3(...p)).join("")}</div>`;
 }
-function htmlMuri(r) {
-  const { h, s, col } = MURO3D;
-  return `<div class="muri3d">${box3(0, 0, 0, r.w, s, h, col)}${box3(0, r.h - s, 0, r.w, s, h, col)}${box3(0, s, 0, s, r.h - 2 * s, h, col)}${box3(r.w - s, s, 0, s, r.h - 2 * s, h, col)}</div>`;
+// pareti: ogni lato (n in alto, s in basso, o a sinistra, e a destra) è una lista di tratti [da, a] in celle
+const LATI3D = { n: "In alto", s: "In basso", o: "A sinistra", e: "A destra" };
+let selMuro = null;
+const lungLato = (r, l) => (l === "n" || l === "s" ? r.w : r.h);
+function tratti(sid, r, l) {
+  const c = ((S.cfg.muri || {})[sid] || {})[l], L = lungLato(r, l);
+  if (!Array.isArray(c)) return [[0, L]];
+  return c.map(([a, b]) => [Math.max(0, a), Math.min(L, b)]).filter(([a, b]) => b - a > 0.05);
 }
+function htmlMuri(r, sid) {
+  const { h, s, col } = MURO3D, sel = modifica3d && sid === sel3d ? selMuro : null;
+  let o = "";
+  for (const l of ["n", "s", "o", "e"]) for (const [a, b] of tratti(sid, r, l)) {
+    const c = l === sel ? "#5AB0FF" : col;
+    if (l === "n") o += box3(a, 0, 0, b - a, s, h, c);
+    if (l === "s") o += box3(a, r.h - s, 0, b - a, s, h, c);
+    if (l === "o") o += box3(0, a, 0, s, b - a, h, c);
+    if (l === "e") o += box3(r.w - s, a, 0, s, b - a, h, c);
+  }
+  return `<div class="muri3d">${o}</div>`;
+}
+// porta la stessa modifica sulla parete in comune della stanza accanto
+function muriVicini(sid, l, nuovi, muri) {
+  const P = piantaStanze().p, A = P[sid], opp = { n: "s", s: "n", o: "e", e: "o" }[l], oriz = l === "n" || l === "s";
+  const linea = (R, lato) => (lato === "n" ? R.y : lato === "s" ? R.y + R.h : lato === "o" ? R.x : R.x + R.w);
+  const base = (R) => (oriz ? R.x : R.y), lung = (R) => (oriz ? R.w : R.h);
+  const absA = nuovi.map(([a, b]) => [base(A) + a, base(A) + b]);
+  for (const [bid, B] of Object.entries(P)) {
+    if (bid === sid || Math.abs(linea(A, l) - linea(B, opp)) > 0.01) continue;
+    const o1 = Math.max(base(A), base(B)), o2 = Math.min(base(A) + lung(A), base(B) + lung(B)); if (o2 - o1 < 0.05) continue;
+    const absB = tratti(bid, B, opp).map(([a, b]) => [base(B) + a, base(B) + b]);
+    const fuori = absB.flatMap(([a, b]) => [[a, Math.min(b, o1)], [Math.max(a, o2), b]]).filter(([a, b]) => b - a > 0.05);
+    const dentro = absA.map(([a, b]) => [Math.max(a, o1), Math.min(b, o2)]).filter(([a, b]) => b - a > 0.05);
+    const tutti = [...fuori, ...dentro].sort((x, y) => x[0] - y[0]).reduce((acc, t) => { const u = acc[acc.length - 1]; if (u && t[0] <= u[1] + 0.01) u[1] = Math.max(u[1], t[1]); else acc.push([...t]); return acc; }, []);
+    muri[bid] = { ...(muri[bid] || {}), [opp]: tutti.map(([a, b]) => [Math.round((a - base(B)) * 100) / 100, Math.round((b - base(B)) * 100) / 100]) };
+  }
+}
+async function salvaParete(sid, l, nuovi) {
+  const muri = { ...(S.cfg.muri || {}) };
+  muri[sid] = { ...(muri[sid] || {}), [l]: nuovi };
+  muriVicini(sid, l, nuovi, muri);
+  await salvaCfg({ muri }); disegna();
+}
+function htmlBarraMuri(sid) {
+  const r = piantaStanze().p[sid]; if (!r) return "";
+  const chip = Object.entries(LATI3D).map(([l, n]) => `<button class="btn pic ${selMuro === l ? "p" : ""}" data-muro3d="${l}">${n}</button>`).join("");
+  let ctl = `<span class="dim">Scegli una parete per accorciarla, allungarla o toglierla.</span>`;
+  if (selMuro) {
+    const t = tratti(sid, r, selMuro), oriz = selMuro === "n" || selMuro === "s", L = lungLato(r, selMuro);
+    const lun = t.reduce((a, [x, y]) => a + y - x, 0), [e1, e2] = oriz ? ["Lato sinistro", "Lato destro"] : ["Lato in alto", "Lato in basso"];
+    ctl = `<span class="dim">${t.length ? `lunga ${fmt1(lun)} su ${fmt1(L)}` : "nessuna parete"}</span>
+      <span class="g3d">${e1} <button class="btn pic" data-muro3d-m="ini|1" aria-label="Accorcia">−</button><button class="btn pic" data-muro3d-m="ini|-1" aria-label="Allunga">＋</button></span>
+      <span class="g3d">${e2} <button class="btn pic" data-muro3d-m="fin|-1" aria-label="Accorcia">−</button><button class="btn pic" data-muro3d-m="fin|1" aria-label="Allunga">＋</button></span>
+      <span class="g3d"><button class="btn pic" data-muro3d-m="intera">Intera</button><button class="btn pic" data-muro3d-m="nessuna">Nessuna</button></span>`;
+  }
+  return `<div class="barra3d arr"><b>Pareti</b><span class="g3d">${chip}</span>${ctl}</div>`;
+}
+document.addEventListener("click", (ev) => {
+  const c = ev.target.closest("[data-muro3d]");
+  if (c) { selMuro = selMuro === c.dataset.muro3d ? null : c.dataset.muro3d; selArr = null; return disegna(); }
+  const b = ev.target.closest("[data-muro3d-m]"); if (!b || !sel3d || !selMuro) return;
+  const r = piantaStanze().p[sel3d], L = lungLato(r, selMuro);
+  const [k, v] = b.dataset.muro3dM.split("|");
+  if (k === "intera") return salvaParete(sel3d, selMuro, [[0, L]]);
+  if (k === "nessuna") return salvaParete(sel3d, selMuro, []);
+  let t = tratti(sel3d, r, selMuro).map((x) => [...x]);
+  if (!t.length) t = k === "ini" ? [[L, L]] : [[0, 0]];
+  const d = Number(v) * 0.25;
+  if (k === "ini") t[0][0] = Math.max(0, Math.min(t[0][1], Math.round((t[0][0] + d) * 4) / 4));
+  else { const u = t[t.length - 1]; u[1] = Math.max(u[0], Math.min(L, Math.round((u[1] + d) * 4) / 4)); }
+  salvaParete(sel3d, selMuro, t.filter(([a, b2]) => b2 - a > 0.05));
+});
+document.addEventListener("click", (ev) => { if (ev.target.closest("[data-modifica3d]")) selMuro = null; }, true);
 const _vCasa3dArr = vCasa3d;
 vCasa3d = function () {
   let h = _vCasa3dArr();
@@ -1323,7 +1392,7 @@ vCasa3d = function () {
   for (const s of ss) {
     const r = p[s.id]; if (!r) continue;
     const tp = tipo3d(s), stt = statoStanza3d(s), cls = [stt.tv && "tv-on", stt.lav && "lav-on", stt.luce && "luce-on"].filter(Boolean).join(" ");
-    const dentro = `<div class="pav3d" style="background:${tp ? tp[3] : "repeating-linear-gradient(90deg,#334050 0 34px,#2e3a49 34px 36px)"}"></div>${htmlMuri(r)}<div class="mobili3d ${cls}">${arrediDi(s.id).map((m, i) => htmlMobile(m, i, s.id)).join("")}</div>`;
+    const dentro = `<div class="pav3d" style="background:${tp ? tp[3] : "repeating-linear-gradient(90deg,#334050 0 34px,#2e3a49 34px 36px)"}"></div>${htmlMuri(r, s.id)}<div class="mobili3d ${cls}">${arrediDi(s.id).map((m, i) => htmlMobile(m, i, s.id)).join("")}</div>`;
     h = h.replace(new RegExp(`(data-st3d="${s.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>)`), `$1${dentro}`);
   }
   if (modifica3d) {
@@ -1337,7 +1406,7 @@ vCasa3d = function () {
       const riga = `<div class="barra3d arr"><span class="g3d"><select data-arr3d-agg><option value="">＋ Aggiungi mobile…</option>${opz}</select></span>
         <span class="g3d">${tp ? `<button class="btn pic" data-arr3d="auto">Arreda in automatico</button>` : ""}${arrediDi(sel3d).length ? `<button class="btn pic" data-arr3d="svuota">Togli tutti i mobili</button>` : ""}</span>
         <span class="dim">Tocca un mobile per spostarlo, ruotarlo o toglierlo.</span></div>`;
-      h = h.replace('<div class="c3d-scena modifica"', riga + '<div class="c3d-scena modifica"');
+      h = h.replace('<div class="c3d-scena modifica"', riga + htmlBarraMuri(sel3d) + '<div class="c3d-scena modifica"');
     }
   }
   return h;

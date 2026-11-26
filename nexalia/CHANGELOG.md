@@ -1,5 +1,11 @@
 # Novità
 
+## 1.13.0
+- Casa 3D: ogni parete si può accorciare, allungare o togliere, per esempio per fare una parete divisoria corta.
+  - Modifica → tocca una stanza → "Pareti" → scegli la parete (In alto, In basso, A sinistra, A destra).
+  - Con − e ＋ la accorci o la allunghi da un lato o dall'altro. "Nessuna" la toglie, "Intera" la rimette com'era.
+  - Se la parete è in comune con la stanza accanto, si aggiorna anche lì.
+
 ## 1.12.1
 - Casa 3D: "Arreda in automatico" riconosce anche le stanze chiamate "Sala" come soggiorno.
 
