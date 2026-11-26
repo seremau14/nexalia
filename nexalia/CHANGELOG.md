@@ -1,5 +1,12 @@
 # Novità
 
+## 1.10.0
+- Home ordinata (attiva da sola, si spegne in Impostazioni › Home): ogni informazione compare una volta sola.
+  - Via il blocco "Cosa succede in casa" (ripeteva data, ora e stanze) e la fila consumo/porte/allarme quando ci sono i widget.
+  - Le pastiglie uguali a un widget non compaiono più.
+  - Niente riquadri vuoti: i widget senza dati ("—", "non disponibile") e quelli "0, tutto a posto" si nascondono; "Cosa è successo" compare solo quando c'è qualcosa.
+  - Intestazione: niente più "— UNAVAILABLE" quando il meteo non risponde.
+
 ## 1.9.1
 - La plancia si aggiorna anche sui browser integrati che bloccano il collegamento in tempo reale (tablet, Echo con LineageOS, app che la mostrano a tutto schermo): in quel caso chiede lo stato ogni 6 secondi.
 

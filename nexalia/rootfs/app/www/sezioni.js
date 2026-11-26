@@ -1167,3 +1167,47 @@ document.addEventListener("click", async (ev) => {
   catch (e) { avviso(e.message, "err"); t.disabled = false; }
   disegna();
 });
+
+// ================================================================== Home ordinata: niente doppioni, niente riquadri vuoti
+const homePulita = () => (S.cfg.home || {}).pulita !== false;
+const vuoto = (v) => v == null || v === "" || /^(—|-|unavailable|unknown|non disponibile|nessuno|nessuna)$/i.test(String(v).trim());
+function widgetInHome() { const s = homeAttivi(); return s.includes("widget") ? new Set(ordineWidget().filter((x) => x.on && !vuoto(calcolaWidget(x.k).v)).map((x) => x.k)) : new Set(); }
+const _vAgentePulito0 = vAgente;
+vAgente = function () {
+  const h = S.cfg.home; if (!h || !homePulita()) return _vAgentePulito0();
+  const r0 = h.riquadri, b0 = h.blocchi_nuovi;
+  const w = homeAttivi().includes("widget");
+  // "Cosa succede in casa" ripete data, ora e stanze; la fila consumo/porte/allarme ripete i widget; il diario vuoto è solo spazio
+  h.riquadri = homeAttivi().filter((k) => k !== "stanze" && !(w && KPI.includes(k)) && !(k === "diario" && !(S.diario || []).length) && !(KPI.includes(k) && (() => { const r = riquadroKpi(k); return !r || vuoto(r[1]); })()));
+  h.blocchi_nuovi = true;
+  try { return _vAgentePulito0(); } finally { h.riquadri = r0; h.blocchi_nuovi = b0; }
+};
+const _vPastigliePulite0 = vPastiglie;
+vPastiglie = function () {
+  if (!homePulita()) return _vPastigliePulite0();
+  const p = S.cfg.pastiglie || {}, a0 = p.attive, dup = widgetInHome();
+  if (!S.cfg.pastiglie) return _vPastigliePulite0();
+  p.attive = (a0 || []).filter((k) => !dup.has(k));
+  try { return _vPastigliePulite0(); } finally { p.attive = a0; }
+};
+vWidget = function () {
+  const att = ordineWidget().filter((x) => x.on).map(({ k }) => ({ k, d: WIDGET[k], c: calcolaWidget(k) })).filter((x) => !homePulita() || (!vuoto(x.c.v) && !(["aggiornamenti", "non_connessi", "batterie", "allagamenti", "fumo", "avvisi"].includes(x.k) && /^0\b/.test(String(x.c.v)) && !x.c.att)));
+  if (!att.length) return "";
+  return `<section class="widget-griglia">${att.map(({ k, d, c }) => `<button class="widget ${c.att ? "att" : ""}" data-nx-widget="${k}"><span class="w-ic">${ico(d.ic)}</span><small>${d.nome}</small><b>${esc(c.v)}</b><span class="w-sub">${esc(c.sub || "")}</span></button>`).join("")}</section>`;
+};
+const _vIntestazione0 = vIntestazione;
+vIntestazione = function () {
+  const h = _vIntestazione0(), m = datiMeteo();
+  if (!homePulita() || (m.temp != null && m.cond && !vuoto(m.cond))) return h;
+  // c'è il cielo ma non la temperatura: tolgo solo il "—"
+  if (m.cond && !vuoto(m.cond)) return h.replace(/<b>—<\/b>/, "");
+  // meteo assente o non disponibile: resta solo data e ora, niente "— UNAVAILABLE"
+  return h.replace(/<div class="intest-meteo">[\s\S]*?<\/div>/, '<div class="intest-meteo"></div>');
+};
+const _pannelliPulita = pannelli;
+pannelli = function () {
+  const P = _pannelliPulita();
+  if (P.home) { const hh = P.home.html; P.home = { ...P.home, html: () => interruttore(homePulita(), "data-nx-pulita", "Home ordinata", "Ogni informazione una volta sola: niente data ripetuta, niente pastiglie uguali ai widget, niente riquadri vuoti. Spenta, la home mostra tutti i blocchi scelti qui sotto.") + hh() }; }
+  return P;
+};
+document.addEventListener("click", async (ev) => { if (!ev.target.closest("[data-nx-pulita]")) return; await salvaCfg({ home: { ...S.cfg.home, pulita: !homePulita() } }); disegna(); });
