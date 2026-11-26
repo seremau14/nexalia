@@ -1,5 +1,8 @@
 # Novità
 
+## 1.10.2
+- Barra rapida ancorata in fondo allo schermo, a tutta larghezza e con fondo pieno: sempre allo stesso posto, non si confonde più con i riquadri. Icone e scritte più grandi.
+
 ## 1.10.1
 - Home ordinata: nasconde anche i widget senza nulla da mostrare (es. Agenda con 0 calendari); intestazione più bassa quando il meteo non c'è.
 
