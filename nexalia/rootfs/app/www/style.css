@@ -697,3 +697,6 @@ body.chiaro .scelte-grandi button{background:#fff;border-color:#d9dee5}
 .richiesta .r-testo span{opacity:.85;font-size:14px}
 .richiesta .r-az{display:flex;gap:8px;flex-wrap:wrap}
 @media (prefers-reduced-motion:reduce){.richiesta.urgente{animation:none}}
+
+/* intestazione senza meteo: più bassa */
+.intest:has(.intest-meteo:empty){padding-top:10px;padding-bottom:10px}

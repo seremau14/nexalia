@@ -1,5 +1,8 @@
 # Novità
 
+## 1.10.1
+- Home ordinata: nasconde anche i widget senza nulla da mostrare (es. Agenda con 0 calendari); intestazione più bassa quando il meteo non c'è.
+
 ## 1.10.0
 - Home ordinata (attiva da sola, si spegne in Impostazioni › Home): ogni informazione compare una volta sola.
   - Via il blocco "Cosa succede in casa" (ripeteva data, ora e stanze) e la fila consumo/porte/allarme quando ci sono i widget.

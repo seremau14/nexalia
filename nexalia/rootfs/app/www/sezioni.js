@@ -1191,7 +1191,7 @@ vPastiglie = function () {
   try { return _vPastigliePulite0(); } finally { p.attive = a0; }
 };
 vWidget = function () {
-  const att = ordineWidget().filter((x) => x.on).map(({ k }) => ({ k, d: WIDGET[k], c: calcolaWidget(k) })).filter((x) => !homePulita() || (!vuoto(x.c.v) && !(["aggiornamenti", "non_connessi", "batterie", "allagamenti", "fumo", "avvisi"].includes(x.k) && /^0\b/.test(String(x.c.v)) && !x.c.att)));
+  const att = ordineWidget().filter((x) => x.on).map(({ k }) => ({ k, d: WIDGET[k], c: calcolaWidget(k) })).filter((x) => !homePulita() || (!vuoto(x.c.v) && !(["aggiornamenti", "non_connessi", "batterie", "allagamenti", "fumo", "avvisi"].includes(x.k) && /^0\b/.test(String(x.c.v)) && !x.c.att) && !/^0 (calendari|sensori|dispositivi)/.test(String(x.c.sub || ""))));
   if (!att.length) return "";
   return `<section class="widget-griglia">${att.map(({ k, d, c }) => `<button class="widget ${c.att ? "att" : ""}" data-nx-widget="${k}"><span class="w-ic">${ico(d.ic)}</span><small>${d.nome}</small><b>${esc(c.v)}</b><span class="w-sub">${esc(c.sub || "")}</span></button>`).join("")}</section>`;
 };
