@@ -8,7 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSIONE = "1.13.0";
+const VERSIONE = "1.14.0";
 const PORTA = Number(process.env.PORTA || 8099);
 const DATI = process.env.NEXALIA_DATI || "/data";
 const WWW = path.join(__dirname, "www");
@@ -44,7 +44,7 @@ const CONFIG_BASE = {
   agente: { notifica: "", spegni_luci_uscita: false, avvisa_consumi: true, avvisa_finestre_pioggia: true },
   raccolta: { attiva: false, ora: "20:00", calendario: {} },   // calendario: {"1":"Organico", ...} giorno settimana 1-7 -> tipo (sera prima)
   aspetto: { nome_casa: "" },
-  assist: { agente: "", voce: false, nascondi: false, tts_motore: "", tts_voce: "", altoparlante: "", personalita: "", prompt: "" }, // voce di Home Assistant (Piper, cloud…) e carattere dell'assistente AI
+  assist: { agente: "", rapidi: true, voce: false, nascondi: false, tts_motore: "", tts_voce: "", altoparlante: "", personalita: "", prompt: "" }, // voce di Home Assistant (Piper, cloud…) e carattere dell'assistente AI
   personalizza: {},      // {entity_id: {nome, icona, gruppo}}
   sezioni_ordine: [],
   generali: { admin: "", intestazione_fissa: true },
@@ -185,6 +185,7 @@ function collegaHA() {
           for (const e of ["area_registry_updated", "entity_registry_updated", "device_registry_updated"]) await wsChiama({ type: "subscribe_events", event_type: e });
           await caricaRegistri();
           setTimeout(() => { try { controllaUscita(); controllaAllarme(); controllaConsumi(); } catch (e) {} }, 8000);
+          setTimeout(() => comandiRapidiVoce().catch(() => {}), 10000);
         } catch (e) { log("Iscrizione eventi fallita:", e.message); }
       } else if (msg.type === "auth_invalid") { log("Token di Home Assistant rifiutato"); }
       else if (msg.type === "result") {
@@ -562,6 +563,18 @@ function corpo(req, max = 2e6) {
   });
 }
 
+// comandi rapidi anche a voce (Echo, satelliti): negli assistenti vocali che usano un agente AI,
+// Home Assistant prova prima i suoi comandi (accendi, spegni, alza, abbassa) e chiama l'AI solo se serve
+async function comandiRapidiVoce() {
+  const on = (config.assist || {}).rapidi !== false;
+  const l = await wsChiama({ type: "assist_pipeline/pipeline/list" });
+  for (const pp of (l && l.pipelines) || []) {
+    if (!pp.conversation_engine || pp.conversation_engine === "conversation.home_assistant" || !!pp.prefer_local_intents === on) continue;
+    const campi = ["conversation_engine", "conversation_language", "language", "name", "stt_engine", "stt_language", "tts_engine", "tts_language", "tts_voice", "wake_word_entity", "wake_word_id"];
+    const dati = {}; for (const k of campi) dati[k] = pp[k] === undefined ? null : pp[k];
+    await wsChiama({ type: "assist_pipeline/pipeline/update", ...dati, pipeline_id: pp.id, prefer_local_intents: on });
+  }
+}
 const CHIAVI_MODIFICABILI = ["mie_entita", "stanze_cfg", "sez_gen", "mie_sezioni", "generali", "pastiglie", "antifurto", "widget", "azioni", "aspetto", "assist", "personalizza", "sezioni_ordine", "home", "stanze", "nascoste", "posizioni", "pianta", "arredi", "muri", "energia", "agente", "raccolta", "sezioni", "tema"];
 
 // utente di Home Assistant che sta guardando (Home Assistant lo passa a Nexalia con l'ingress)
@@ -599,7 +612,18 @@ async function api(req, res, p) {
   if (p === "/api/assist" && req.method === "POST") {
     const b = await corpo(req);
     const agente = config.assist && /^conversation\.[a-z0-9_]+$/.test(config.assist.agente || "") ? config.assist.agente : undefined;
-    const r = await wsChiama({ type: "conversation/process", text: String(b.testo || "").slice(0, 500), language: ha.config.lingua || "it", conversation_id: b.conversazione || undefined, agent_id: agente }, 60000);
+    const testo = String(b.testo || "").slice(0, 500), lingua = ha.config.lingua || "it";
+    // comandi rapidi: prima i comandi di Home Assistant senza AI (luci, tapparelle…), l'AI solo se non li capisce
+    if (agente && config.assist.rapidi !== false) {
+      try {
+        const v = await wsChiama({ type: "conversation/process", text: testo, language: lingua, agent_id: "conversation.home_assistant" }, 8000);
+        if (v && v.response && v.response.response_type !== "error") {
+          const sp = v.response.speech && v.response.speech.plain && v.response.speech.plain.speech;
+          return json(res, { ok: true, risposta: sp || "Fatto.", conversazione: b.conversazione, rapido: true });
+        }
+      } catch (e) {}
+    }
+    const r = await wsChiama({ type: "conversation/process", text: testo, language: lingua, conversation_id: b.conversazione || undefined, agent_id: agente }, 60000);
     const sp = r && r.response && r.response.speech && r.response.speech.plain && r.response.speech.plain.speech;
     return json(res, { ok: true, risposta: sp || "Fatto.", conversazione: r.conversation_id });
   }
@@ -699,6 +723,7 @@ async function api(req, res, p) {
     const b = await corpo(req);
     if (!puoConfigurare(req) && Object.keys(b).some((k) => !["home", "nascoste"].includes(k))) return json(res, { ok: false, errore: "Solo l'amministratore della plancia può cambiare le impostazioni" }, 403);
     for (const k of CHIAVI_MODIFICABILI) if (k in b) config[k] = b[k];
+    if ("assist" in b) comandiRapidiVoce().catch(() => {});
     if (!completa()) { config.posizioni = config.posizioni || {}; }
     salva();
     inviaSSE("config", configPubblica());

@@ -1,5 +1,10 @@
 # Novità
 
+## 1.14.0
+- Comandi rapidi senza AI, attivi da subito: accendi, spegni, alza e abbassa li esegue direttamente Home Assistant, in meno di un secondo. L'assistente AI (Gemini, Claude, ChatGPT…) risponde solo alle domande che Home Assistant non capisce.
+  - Vale sia nella casella "Chiedi a Nexalia" sia a voce (Echo, telefono, satelliti): Nexalia attiva "preferisci i comandi locali" negli assistenti vocali che usano un agente AI.
+  - Si spegne in Impostazioni → Assist e voce → "Comandi rapidi senza AI".
+
 ## 1.13.0
 - Casa 3D: ogni parete si può accorciare, allungare o togliere, per esempio per fare una parete divisoria corta.
   - Modifica → tocca una stanza → "Pareti" → scegli la parete (In alto, In basso, A sinistra, A destra).
