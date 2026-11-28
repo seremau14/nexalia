@@ -1524,3 +1524,20 @@ disegna = function () {
   }
   for (const id in cambiati) if (ora - cambiati[id] > 3000) delete cambiati[id];
 };
+
+// ================================================================== Interruttori: niente finto "acceso" se il dispositivo non risponde
+document.addEventListener("click", (ev) => {
+  const t = ev.target.closest("[data-az=toggle]"); if (!t || !t.dataset.id) return;
+  const id = t.dataset.id, prima = S.stati[id];
+  if (!prima || ["unavailable", "unknown"].includes(prima.state)) {
+    ev.stopImmediatePropagation(); ev.preventDefault();
+    return avviso(`${nomeE(id)} non è raggiungibile: Home Assistant lo vede scollegato. Controlla che sia alimentato e collegato al Wi-Fi.`, "err");
+  }
+  setTimeout(() => {
+    const ora = S.stati[id];
+    if (ora && ora !== prima && ora.state !== prima.state && ora.last_updated === prima.last_updated) {
+      S.stati[id] = prima; ridisegna();
+      avviso(`${nomeE(id)} non ha risposto al comando.`, "err");
+    }
+  }, 6000);
+}, true);

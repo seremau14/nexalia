@@ -1,5 +1,8 @@
 # Novità
 
+## 1.15.1
+- Interruttori più chiari. Se tocchi un dispositivo che Home Assistant vede scollegato, la plancia lo dice invece di sembrare acceso. Se un comando non riceve risposta entro 6 secondi, l'interruttore torna com'era e compare un avviso.
+
 ## 1.15.0
 - Icone animate quando un dispositivo è in funzione: la ventola gira, la lampadina accesa brilla, la tapparella mostra se sale o scende, il multimediale pulsa quando suona, il robot si muove quando pulisce, il clima pulsa caldo o freddo quando scalda o raffresca. Vale anche nella Casa 3D.
 - Passaggio morbido tra le schede della barra in fondo.
