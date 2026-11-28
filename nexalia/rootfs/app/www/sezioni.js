@@ -1490,3 +1490,37 @@ dopoCasa3d = function () {
     window.addEventListener("pointermove", muovi); window.addEventListener("pointerup", fine);
   }, true);
 };
+
+// ================================================================== Movimento: icone animate, passaggio morbido tra le schede, tessere che si illuminano
+function animIcona(id) {
+  const s = S.stati[id]; if (!s) return "";
+  const d = dom(id), v = s.state;
+  if (d === "fan" && v === "on") return "anim-gira";
+  if (d === "light" && v === "on") return "anim-brilla";
+  if (d === "cover" && v === "opening") return "anim-sale";
+  if (d === "cover" && v === "closing") return "anim-scende";
+  if (d === "media_player" && v === "playing") return "anim-suona";
+  if (d === "vacuum" && v === "cleaning") return "anim-pulisce";
+  if (d === "climate" && ["heat", "cool", "heat_cool", "auto"].includes(v) && s.attributes && ["heating", "cooling"].includes(s.attributes.hvac_action)) return s.attributes.hvac_action === "cooling" ? "anim-freddo" : "anim-caldo";
+  return "";
+}
+const ANIM3D = ["anim-gira", "anim-brilla", "anim-sale", "anim-scende", "anim-suona", "anim-pulisce", "anim-caldo", "anim-freddo"];
+let statiVisti = null, schedaVista = null; const cambiati = {};
+const _disegnaMov = disegna;
+disegna = function () {
+  // cosa è cambiato dall'ultimo disegno
+  const ora = Date.now();
+  if (statiVisti) for (const id in S.stati) { const a = statiVisti[id], b = S.stati[id]; if (a !== undefined && b && a !== b.state) cambiati[id] = ora; }
+  statiVisti = {}; for (const id in S.stati) statiVisti[id] = S.stati[id] && S.stati[id].state;
+  _disegnaMov();
+  const vista = $("#vista"); if (!vista) return;
+  // passaggio morbido quando cambi scheda dalla barra
+  if (schedaVista !== null && schedaVista !== S.scheda) { vista.classList.remove("entra"); void vista.offsetWidth; vista.classList.add("entra"); }
+  schedaVista = S.scheda;
+  for (const el of vista.querySelectorAll(".tess[data-id], .c3d-pin[data-pin]")) {
+    const id = el.dataset.id || el.dataset.pin, a = animIcona(id);
+    el.classList.remove(...ANIM3D); if (a) el.classList.add(a);
+    if (cambiati[id] && ora - cambiati[id] < 1500) { el.classList.remove("lampo"); void el.offsetWidth; el.classList.add("lampo"); }
+  }
+  for (const id in cambiati) if (ora - cambiati[id] > 3000) delete cambiati[id];
+};

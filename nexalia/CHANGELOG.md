@@ -1,5 +1,11 @@
 # Novità
 
+## 1.15.0
+- Icone animate quando un dispositivo è in funzione: la ventola gira, la lampadina accesa brilla, la tapparella mostra se sale o scende, il multimediale pulsa quando suona, il robot si muove quando pulisce, il clima pulsa caldo o freddo quando scalda o raffresca. Vale anche nella Casa 3D.
+- Passaggio morbido tra le schede della barra in fondo.
+- Quando un dispositivo cambia stato, la sua tessera si illumina per un attimo, così vedi subito cosa è appena successo.
+- Chi ha attivato "riduci movimento" sul dispositivo non vede le animazioni.
+
 ## 1.14.0
 - Comandi rapidi senza AI, attivi da subito: accendi, spegni, alza e abbassa li esegue direttamente Home Assistant, in meno di un secondo. L'assistente AI (Gemini, Claude, ChatGPT…) risponde solo alle domande che Home Assistant non capisce.
   - Vale sia nella casella "Chiedi a Nexalia" sia a voce (Echo, telefono, satelliti): Nexalia attiva "preferisci i comandi locali" negli assistenti vocali che usano un agente AI.
